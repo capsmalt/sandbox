@@ -10,22 +10,22 @@ Lab4ではWebとDBから構成されるレガシーなJavaアプリケーショ�
 `mmssearch`は画像認識の機能をもったチャットアプリケーションです。
 画像認識にはIBM Cloudの画像認識サービス([Watson Visual Recognition](https://www.ibm.com/watson/services/visual-recognition/))を使用します。
 
-![](../images/mmssearch-architecture.png)
+![](images/mmssearch-architecture.png)
 
 ## Visual Recognitionサービスの作成
 
 ブラウザで [IBM Cloudのカタログページ](https://cloud.ibm.com/catalog/) にアクセスし、「AI」カテゴリにある「Visual Recognition」を選択します。
 
-![](../images/catalog.png)
+![](images/catalog.png)
 
 デフォルトでサービスを作成する地域が「ダラス(Dallas)」、サービスプランは「ライト（Lite）」となっています。
 「作成」をクリックしてサービスインスタンスを作成します。
 
-![](../images/createvr.png)
+![](images/createvr.png)
 
 サービスが作成されると画面が遷移し、サービスの詳細画面が表示されます。「管理」画面に遷移すると、API呼び出しをするために必要な**APIキー**が取得できます。このAPIキーはこの後使うので参照できるようにしておいてください。
 
-![](../images/vr_apikey.png)
+![](images/vr_apikey.png)
 
 ## Kubernetes Secret の作成
 
@@ -46,7 +46,7 @@ Kubernetesで設定ファイルを管理する方法として`Configmap` と `Se
 
   （画像差し替え予定）
 
-![](../images/watson_credentials.png)
+![](images/watson_credentials.png)
 
 KuberenetesクラスターのSecretを生成します。
 
@@ -104,11 +104,9 @@ IBM Cloudでは、KubernetesクラスターとIBM Cloudのサービスの接続
 ```bash
 ibmcloud ks cluster-service-bind mycluster default visual-recognition-xx
 ```
-
-これを実行すると、`binding-<サービスインスタンス名>`という名前のsecretが生成されます。
-ただし実行前にCFの組織とスペースを`ibmcloud target`で指定する必要があります。
-詳しくはリンクを参照してください。
 
+これを実行すると、`binding-<サービスインスタンス名>`という名前のsecretが生成されます。
+ただし実行前にCFの組織とスペースを`ibmcloud target`で指定する必要があります。詳しくはリンクを参照してください。
 
 なおこの場合`jpetstore-watson-nodeport.yaml`を変更する必要あります。
 
@@ -189,7 +187,7 @@ kubectl get all
 
 `pet-images`ディレクトリにある画像をアップロードすると、画像認識を行い、JpetStoreにある種類かどうかが返ってきます。
 
-   ![](../images/webchat.png)
+   ![](images/webchat.png)
 
 ## アプリの変更（余力があれば書きます）
 
