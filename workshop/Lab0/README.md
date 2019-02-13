@@ -8,12 +8,13 @@ K8sクラスターはIKS(IBM Cloud Kubernetes Service)を使用します。IKS�
 - K8sクラスター(IKS)の構成
 - K8sクラスターへの接続確認
 
-1. CLIのインストール **(※事前準備にて実施済のため不要)**
+1. CLIのインストール **(※事前準備にて実施済のため操作は不要です)**
 
     ["IBM Cloud Developer Tools のインストール方法"](https://console.bluemix.net/docs/cli/index.html#overview) に従い，ご利用されているOSに合わせたコマンドを実行してください。
 
-2. K8sクラスターの作成 **(※セミナー会場にて実施済のため不要)**
+2. K8sクラスターの作成 **(※セミナー会場にて実施済のため操作は不要です)**
 
+    [IBM CloudのWeb画面](https://cloud.ibm.com/containers-kubernetes/catalog/cluster/create)からクラスターを作成します。
     ibmcloudコマンドで作成する場合は， `$ ibmcloud cs cluster-create --name <name-of-cluster>` コマンドを実行します。
 
 3. CLI で IBM Cloudにログイン
@@ -70,14 +71,14 @@ K8sクラスターはIKS(IBM Cloud Kubernetes Service)を使用します。IKS�
 
     本日はダラス(=us-south)上に IKSクラスターを構築しているので，ibmcloud cliが指すリージョンを `us-south` に設定します。
     
-    実行例: 
+    実行例:
     
     ```bash.sh
     $ ibmcloud cs region-set us-south
     ```
     
     >補足:  
-    >`cs`プラグインは`ibmcloud`CLIを拡張させるプラグインです。IBM Cloud Kubernetes Service (IKS)の制御に役立ちます。もちろんK8sクラスター自体の操作・制御は`kubectl (後述)`で行えますが，csプラグインを使用することで，K8sクラスターへの接続情報(後述)や，IBM Cloud (PaaS)上でのIPアドレスの振られ方，ノード構成など情報抽出が可能です。現在はcsプラグインの後継版の`ks`プラグインが使用可能です。
+    >`cs`(container-service)プラグインは`ibmcloud`でIBM Cloud Kubernetes Service (IKS)を操作するためのプラグインです。K8sクラスター自体の操作・制御は`kubectl (後述)`で行いますが，そのためのK8sクラスターへの接続情報の取得(後述)やK8sクラスターに割り振られているIPアドレスの確認，ノード構成の情報取得など、IBM Cloudのサービスに関わる操作には`ibmcloud cs`コマンドを使う必要があります。なお、現在はcsプラグインの後継版の`ks`(kubernetes-service)プラグインが使用可能です。
 
 5. 接続情報の取得
    
@@ -106,7 +107,7 @@ K8sクラスターはIKS(IBM Cloud Kubernetes Service)を使用します。IKS�
     >
     >```bash.sh
     > 例) プラグインの新規インストールが必要なケース (csプラグインのインストール例)
-    > $ ibmcloud plugin install container-service -r Bluemix 
+    > $ ibmcloud plugin install container-service -r Bluemix
     > 
     > 例) プラグインのアップデートが必要なケース (csプラグインのアップデート例)
     > $ ibmcloud plugin update container-service -r Bluemix
@@ -114,7 +115,7 @@ K8sクラスターはIKS(IBM Cloud Kubernetes Service)を使用します。IKS�
  
 6. 5.で取得した 自身の`KUBECONFIG` の情報をexport(set)します
     
-    4.でコピーしているはずなので，ペーストします。
+    4.でコピーしたものをペーストします。
 
     実行例:
     
@@ -130,13 +131,14 @@ K8sクラスターはIKS(IBM Cloud Kubernetes Service)を使用します。IKS�
 
 
 6. K8sクラスターに接続できるか確認します
+
+    下記のように，K8sクラスターの情報(IPアドレス，STATUS，など)が返ってくればOKです。
     
     ```bash.sh
     $ kubectl get nodes
     NAME            STATUS   ROLES    AGE   VERSION
     10.76.217.175   Ready    <none>   12h   v1.10.12+IKS
-    
-    上記のように，K8sクラスターの情報(IPアドレス，STATUS，など)が得られればOKです
     ```
 
-以上でKubernetesクラスター(IKS)の使用準備は整いました。後続のハンズオンを進めてください。
+以上でKubernetesクラスター(IKS)の使用準備は完了です。  
+[Lab1](../Lab1)を進めてください。
