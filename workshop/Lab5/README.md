@@ -1,66 +1,76 @@
-# Lab5: JPetStore on IBM Cloud Kubernetes Service
+# Lab5: Watson APIを使ったアプリケーションのデプロイ
 
-Lab4で作成したJpetStoreアプリケーションを拡張して、 IBM Cloudの画像認識サービス([Watson Visual Recognition](https://www.ibm.com/watson/services/visual-recognition/))と連携させます。
-このLabでは外部APIとの連携の方法を学びます。
-
-![](readme_images/architecture.png)
+このLabではクラウドサービスや外部APIをKubernetesから呼び出す方法について学びます。
 
 ## つくるもの
 
-Lab4ではWebとDBから構成されるレガシーなJavaアプリケーションをコンテナ化し、Kubernetesにデプロイしました。
-これにより、既存のアプリケーションがモダナイズ（Modernize)できたことになります。
+Lab4ではWebとDBから構成されるレガシーなJavaアプリケーションをコンテナ化し、Kubernetesにデプロイしました。これにより、既存のアプリケーションがモダナイズできたことになります。
+このLab5ではモダナイズされたアプリを拡張し、新しい機能をマイクロサービスとして実装します。
 
-Lab5ではモダナイズされたアプリを拡張し、新しい機能をマイクロサービスとして実装します。
-具体的にはGo言語で書かれたチャットアプリに、画像認識の機能を追加したアプリケーション（mmsserach）が該当します。
+`mmssearch`は画像認識の機能をもったチャットアプリケーションです。
+画像認識にはIBM Cloudの画像認識サービス([Watson Visual Recognition](https://www.ibm.com/watson/services/visual-recognition/))を使用します。
+
+![](images/mmssearch-architecture.png)
 
 ## Visual Recognitionサービスの作成
 
 ブラウザで [IBM Cloudのカタログページ](https://cloud.ibm.com/catalog/) にアクセスし、Visual Recognitionサービスを作成します。
 サービスを作成する地域は「米国南部(Dallas)」、サービスプランは「ライト（Lite）」を選択し、「作成」をクリックします。
 
-IBM Cloudのライト・プランは無料で利用可能です。
+（キャプチャ）
 
 サービスが作成されると画面が遷移し、サービスの詳細画面が表示されます。このページで、API呼び出しをするために必要な**APIキー**が取得できます。このAPIキーはこの後使うのですぐに参照できるようにしておいてください。
 
-## Kubernetes secret の作成
+（キャプチャ）
 
-Kubernetes上のアプリケーションから外部APIを呼び出す際
+## Kubernetes Secret の作成
 
-`Configmap` と `Secret` の2種類の方法がありますが、APIキーのようなより機密性のな情報についてはSecretを使用することが推奨されています。
+Kubernetes上のアプリケーションから外部サービスを呼び出すための設定を行います。
+外部サービスを呼び出すためにはAPIキーやユーザID/パスワードが必要となりますが、アプリケーションとは切り離して別の設定ファイルとして管理することが推奨されています。
+Kubernetesで設定ファイルを管理する方法として`Configmap` と `Secret` の2種類がありますが、APIキーのようなより機密性のな情報についてはSecretを使用することが推奨されています。
 
 テンプレートファイル**mms-secrets.json.template**を使用して、**mms-secrets.json** ファイルを作成します:
 
    ```bash
    # from jpetstore-kubernetes directory
    cd mmssearch
+
    cp mms-secrets.json.template mms-secrets.json
    ```
 
 エディタで**mms-secrets.json** を開き、先ほど作成したVisual RecognitionのAPIキーを貼り付けます。
 
-   ![](readme_images/watson_credentials.png)
+  （画像差し替え予定）
 
+   ![](images/watson_credentials.png)
 
-`kubectl`コマンドを使用してKuberenetesクラスターのSecretを生成します。
+KuberenetesクラスターのSecretを生成します。
 
 ```bash
 # from the jpetstore-kubernetes directory
 cd mmssearch
+
 kubectl create secret generic mms-secret --from-file=mms-secrets=./mms-secrets.json
+
+出力
 ```
 
-Secretが正しく生成できているか確認します。
+`Secret`が正しく生成できているか確認します。
 
 ```bash
 kubectl get secret
+
+出力
 ```
 
 ```bash
 kubectl get secret mms-secret -o yaml
+
+出力
 ```
 
-mms-search欄にはランダムの文字列が並んでいますが、これはAPIキーがBase64 エンコードされているものです。
-なお、Configmapとして生成した場合は暗号化されず平文のまま値が格納されます。
+ >mms-search欄にはランダムの文字列が並んでいますが、これはAPIキーがBase64 エンコードされているものです。
+ >なお、Configmapとして生成した場合は暗号化されず平文のまま値が格納されます。
 
 これで、Visual RecognitionのAPIキーがSecretとしてKubernetesクラスターに渡されました。
 実際にアプリケーションから読み出す方法はSecretをVolumeとしてマウントする方法と、環境変数としてSecretを参照する方法があります。
@@ -97,7 +107,8 @@ ibmcloud ks cluster-service-bind mycluster default visual-recognition-xx
 詳しくはリンクを参照してください。
 
 
-この場合`jpetstore-watson-nodeport.yaml`を変更する必要あり。
+なおこの場合`jpetstore-watson-nodeport.yaml`を変更する必要あります。
+
 ```yaml
 kind: Deployment
 apiVersion: extensions/v1beta1
@@ -133,68 +144,63 @@ spec:
             path: mms-secrets.json #変更するならmmssearch/main.goの記述を変更する
 ```
 
-
 ## アプリケーションのデプロイ
 
-There are two different ways to deploy the three micro-services to a Kubernetes cluster:
+### Helmを利用したデプロイ
 
-- Using [Helm](https://helm.sh/) to provide values for templated charts (recommended)
-- Or, updating yaml files with the right values and then running  `kubectl create`
-
-### オプション 1: Helmを利用してデプロイ
-
-1. Install [Helm](https://docs.helm.sh/using_helm/#installing-helm). (`brew install kubernetes-helm` on MacOS)
-
-2. Find your **Ingress Subdomain** by running `ibmcloud cs cluster-get YOUR_CLUSTER_NAME` , it will look similar to "mycluster.us-south.containers.mybluemix.net".
-
-3. Open `../helm/modernpets/values.yaml` and make the following changes.
-
-    - Update `repository` and replace `<NAMESPACE>` with your Container Registry namespace.
-    - Update `hosts` and replace `<Ingress Subdomain>` with your Ingress Subdomain.
-
-4. Repeat the previous step and update `../helm/mmssearch/values.yaml` with the same changes.
-
-5. Next, install JPetStore and Visual Search using the helm yaml files you just created:
+Helm チャートを使用してMMSSearch アプリをデプロイします。
 
     ```bash
     # Change into the helm directory
     cd ../helm
 
-    # Initialize helm
-    helm init
-
-    # Create the JPetstore app
-    helm install --name jpetstore ./modernpets
-
     # Ceate the MMSSearch microservice
     helm install --name mmssearch ./mmssearch
     ```
 
-### オプション 2: YAMLファイルを使用してデプロイ
+    出力：
 
-yamlファイルを使用して宣言的にデプロイを実行します。
+    ```bash
+    NAME:   mmssearch-helm
+    LAST DEPLOYED: Wed Feb 13 15:49:39 2019
+    NAMESPACE: default
+    STATUS: DEPLOYED
 
-1. Edit **jpetstore/jpetstore.yaml** and **jpetstore/jpetstore-watson.yaml** and replace all instances of:
+    RESOURCES:
+    ==> v1/Service
+    NAME       CLUSTER-IP      EXTERNAL-IP  PORT(S)         AGE
+    mmssearch  172.21.216.131  <nodes>      8080:30293/TCP  1s
 
-  - `<CLUSTER DOMAIN>` with your Ingress Subdomain (`ibmcloud cs cluster-get CLUSTER_NAME`)
-  - `<REGISTRY NAMESPACE>` with your Image registry URL. For example:`registry.ng.bluemix.net/mynamespace`
+    ==> v1beta2/Deployment
+    NAME                      KIND
+    mmssearch-helm-mmssearch  Deployment.v1beta2.apps
+    ```
 
-2. `kubectl create -f jpetstore.yaml`  - This creates the JPetstore app and database microservices
-3. `kubectl create -f jpetstore-watson.yaml`  - This creates the MMSSearch microservice
+### YAMLファイルを使用したデプロイ
+
+yamlファイルを使用してデプロイする場合は以下のようになります。
+
+```bash
+kubectl apply -f jpetstore-watson.yaml
+```
+
+MMSSearchのコンテナがデプロイされます。
+
+```bash
+kubectl get all
+```
 
 ## 動作確認
 
-You are now ready to use the UI to shop for a pet or query the store by sending it a picture of what you're looking at:
 
-1. Access the java jpetstore application web UI for JPetstore at `http://jpetstore.<Ingress Subdomain>/shop/index.do`
+ブラウザ上で以下のURLからjpetアプリの動作をテストします:
+`<クラスターのPublic IP>:<ポート>`にアクセスしてください。
 
-   ![](readme_images/petstore.png)
+`pet-images`ディレクトリにある画像をアップロードすると、画像認識を行い、JpetStoreにある種類かどうかが返ってきます。
 
-2. Access the mmssearch app and start uploading images from `pet-images` directory.
+   ![](images/webchat.png)
 
-   ![](readme_images/webchat.png)
-
-## アプリの変更
+## アプリの変更（余力があれば書きます）
 
 mmssearch.go or index.htmlを変更し再度docker buildする。
 ビルドはibmclodu cr buildで実行
@@ -207,32 +213,9 @@ mmssearch.go or index.htmlを変更し再度docker buildする。
 helm delete jpetstore --purge
 helm delete mmssearch --purge
 
-# Delete the secrets stored in our cluster
+# クラスターに保存されているSecretを削除
 kubectl delete secret mms-secret
 
-# Remove the container images from the registry
-ibmcloud cr image-rm ${MYREGISTRY}/${MYNAMESPACE}/mmssearch
-ibmcloud cr image-rm ${MYREGISTRY}/${MYNAMESPACE}/jpetstoreweb
-ibmcloud cr image-rm ${MYREGISTRY}/${MYNAMESPACE}/jpetstoredb
-
-# Delete your entire cluster!
-ibmcloud cs cluster-rm yourclustername
 ```
 
-## Troubleshooting
-
-### The toolchain complains about "incompatible versions" for helm
-
-The DEPLOY log shows:
-```
-Error: UPGRADE FAILED: incompatible versions client[v2.8.1] server[v2.4.2]
-```
-
-It means you have already `helm` installed in your cluster and this version is not compatible with the one from the toolchain.
-
-Two options:
-1. Before running the toolchain again, update `helm` to the version used by the toolchain on your local machine then issue a `helm init --upgrade` against the cluster.
-2. Edit `bluemix/pipeline-DEPLOY.sh` at line 60 in your repository and replace `helm init` with `helm init --upgrade`.
-
-Then re-run the DEPLOY job.
-
+以上でハンズオンは終了です。お疲れ様でした。
