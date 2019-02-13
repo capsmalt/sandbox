@@ -44,9 +44,7 @@ Kubernetesで設定ファイルを管理する方法として`Configmap` と `Se
 
 エディタで**mms-secrets.json** を開き、先ほど作成したVisual RecognitionのAPIキーを貼り付けます。
 
-  （画像差し替え予定）
-
-![](images/watson_credentials.png)
+![](images/vr_credential.png)
 
 KuberenetesクラスターのSecretを生成します。
 
@@ -219,7 +217,7 @@ mmssearch-6bf55f59d6      1         1         0         13s
 ブラウザ上で以下のURLからjpetアプリの動作をテストします:
 `<クラスターのPublic IP>:<ポート>`にアクセスしてください。
 
-[pet-images](https://github.com/kissyyy/jpetstore-kubernetes/pet-images)ディレクトリにある画像をアップロードすると、画像認識を行い、JpetStoreにある種類かどうかが返ってきます。
+[pet-images](https://github.com/kissyyy/jpetstore-kubernetes/tree/master/pet-images)ディレクトリにある画像をアップロードすると、画像認識を行い、JpetStoreにある種類かどうかが返ってきます。
 
    ![](images/webchat.png)
 
