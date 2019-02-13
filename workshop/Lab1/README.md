@@ -1,88 +1,116 @@
 # Lab 1. Kubernetesクラスターへのアプリケーションデプロイ
+Kubernetesクラスターへのアプリケーションのデプロイ方法を学びます。
 
-Kubernetesクラスターへのアプリケーション・デプロイの方法を学びます。
+Webサイトのゲストブック機能を提供するシンプルなWebアプリケーション(guestbook)を使用します。
 
 ## 1. K8sクラスターへのアプリケーションデプロイ
-
 `guestbook` アプリケーションをK8sクラスターにデプロイします。
 DockerHub上に，`ibmcom/guestbook:v1` という名前でビルド済Dockerイメージがアップロード済です。
 
 1. `guestbook`を実行します。
 
-   ```$ kubectl run guestbook --image=ibmcom/guestbook:v1```
-
-   アプリケーションの実行ステータスを確認してみましょう。
-   `$ kubectl get pods`
-
    実行例:
 
-   ```console
-   $ kubectl get pods
-   NAME                          READY     STATUS              RESTARTS   AGE
-   guestbook-59bd679fdc-bxdg7    0/1       ContainerCreating   0          1m
-   ```
-   少し待つと，実行中を示すSTATUS属性である `Running` に変わります。
-   
-   ```console
-   $ kubectl get pods
-   NAME                          READY     STATUS              RESTARTS   AGE
-   guestbook-59bd679fdc-bxdg7    1/1       Running             0          1m
+   ```bash
+   $ kubectl run guestbook --image=ibmcom/guestbook:v1   
+   kubectl run --generator=deployment/apps.v1beta1 is DEPRECATED and will be removed in a future version. Use kubectl create instead.
+   deployment.apps/guestbook created
    ```
    
-   runコマンドの最終結果は，アプリケーションコンテナを含むPodだけではなく，
-   これらのPodのライフサイクルを管理するDeploymentリソースです。
- 
+   >補足:  
+   > アプリケーションの実行ステータスを確認してみましょう。
+   > 
+   > ```bash
+   > $ kubectl get pods
+   > NAME                         READY   STATUS    RESTARTS   AGE
+   > guestbook-75786d799f-8c8cv   1/1     Running   0          1m
+   > ```
+   > 
+   > コマンド実行直後は，STATUS属性が `ContainerCreating` です。少し待つと実行中を示す`Running`に変わります。READY属性も `1/1`に変わっているはずです。
+   >    
+   > runコマンドの実行によってPodだけが生成されたわけではなく， K8sでコンテナを上手く管理するための以下のコンポーネントが生成されています。
+   > 
+   > - Pod: アプリケーションコンテナを内包するK8sリソース
+   > - ReplicaSet: Podのライフサイクル管理をするK8sリソース
+   > - Deployment: Pod/ReplicaSetのライフサイクルを管理するK8sリソース
+   > 
+   > K8sリソースを確認するために以下コマンドを実行します。 (guestbookに関連するPod/ReplicaSet/Deploymentが確認できます)
+   > 
+   > ```bash
+   > $ kubectl get all
+   > NAME                             READY   STATUS    RESTARTS   AGE
+   > pod/guestbook-75786d799f-8c8cv   1/1     Running   0          7m
+   > 
+   > NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+   > service/kubernetes   ClusterIP   172.21.0.1   <none>        443/TCP   14h
+   > 
+   > NAME                        DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+   > deployment.apps/guestbook   1         1         1            1           7m
+   > 
+   > NAME                                   DESIRED   CURRENT   READY   AGE
+   > replicaset.apps/guestbook-75786d799f   1         1         1       7m
+   > ```
    
-3. ステータスが「実行中」になったら，ワーカーノードのIPを介して外部からアクセスできるようにするために，DeploymentをServiceを使用して公開する必要があります。
+2. Podのステータスが「実行中(Running)」になったら，K8sクラスター外からアクセスできるように公開します。
 
-   `guestbook` アプリケーションが，3000ポートでLISTENするようにします。
+   ワーカーノードのIPを介して外部からアクセスできるようにするために， **Deployment**を**Service**を使用して公開します。
+
+   以下の手順で `guestbook` アプリケーションが3000ポートでLISTENするようにします。
    
    実行例:
 
-   ```console
+   ```bash
    $ kubectl expose deployment guestbook --type="NodePort" --port=3000
-   service "guestbook" exposed
+   service/guestbook exposed
    ```
-
-4. ワーカー・ノードで使用されているポート番号を調べるために，Service情報を取得します。
+   
+   >補足:
+   > - `Servive`: K8sリソースの一つです。K8sクラスター内のPod間通信を制御したり，外部からのリクエストを適切なPodにルーティングさせるなどの役割を担います。
+   > 
+   > 今回はK8sクラスターの単一のワーカーノードのIPアドレスを宛先として外部公開する方法を定義しています。(`--type=NodePort`) 
+   
+3. ワーカー・ノードで使用されているポート番号を調べるために，Service情報を取得します。
    
    実行例:
 
-   ```console
+   ```bash
    $ kubectl get service guestbook
-   NAME        TYPE       CLUSTER-IP     EXTERNAL-IP   PORT(S)          AGE
-   guestbook   NodePort   10.10.10.253   <none>        3000:31208/TCP   1m
+   NAME        TYPE       CLUSTER-IP      EXTERNAL-IP   PORT(S)          AGE
+   guestbook   NodePort   172.21.90.114   <none>        3000:31454/TCP   17s
    ```
    
-   上記の出力例の場合，`<nodeport>`は31208です。Podは31208ポートで公開され，3000ポートにフォワードされます。
-   31000の範囲のポート番号が自動的に選択され，割り当てられます。受講者ごとにポート番号は異なります。
-
-5. 現在 `guestbook` アプリケーションは，ご自身のK8sクラスター上で動作しており，インターネットに公開されている状態です。
-   アクセスするために必要な情報を取得します。
-
-   Container Service内のワーカーノードの外部IPアドレスを次のコマンドで取得します。  
-   `$ ibmcloud cs workers <name-of-cluster>` を実行すると，`<public-IP>`の列の値を取得できます。
+   上記の例では，`<NodePort>` の値は `31454` です。
    
-   ```console
-   $ ibmcloud cs workers <name-of-cluster>
+   >補足:  
+   > Podは31454ポートで公開され，3000ポートにフォワードされます。
+   > デフォルトでは31000の範囲のポート番号が自動的に割り当てられます。
+
+4. 現在 `guestbook` アプリケーションは，ご自身のK8sクラスター上で動作しており，インターネットに公開されている状態です。
+   アクセスするために，ワーカーノードのパブリックIPアドレス(`Public IP`)を取得します。
+   
+   実行例:
+
+   ```bash
+   $ ibmcloud cs workers mycluster
    OK
-   ID                                                 Public IP        Private IP     Machine Type   State    Status   Zone    Version  
-   kube-hou02-pa1e3ee39f549640aebea69a444f51fe55-w1   173.193.99.136   10.76.194.30   free           normal   Ready    hou02   1.5.6_1500*
+   ID                                                 Public IP       Private IP      Machine Type   State    Status   Zone    Version
+   kube-hou02-pa705552a5a95d4bf3988c678b438ea9ec-w1   184.173.52.92   10.76.217.175   free           normal   Ready    hou02   1.10.12_1543
    ```
    
-   上記の例では，`<public-IP>` の値は `173.193.99.136` です。
+   上記の例では，`<Public IP>` の値は `184.173.52.92` です。
    
-6. 4.および5.の手順で取得した，IPアドレスと，ポート番号を使用してアプリケーションにアクセスします。
-   ブラウザ上で， `<public-IP>:<nodeport>` のように指定します。今回の例では， `173.193.99.136:31208` です。
+5. 3.および4.の手順で取得した，IPアドレス(`Public IP`)とポート番号(`NodePort`)を使用してアプリケーションにアクセスします。
 
+   ブラウザ上で， `<Public IP>:<NodePort>` のように指定します。今回の例では， `184.173.52.92:31454` です。
+   
+   ![guestbook application in browser](images/guestbook-in-browser.png)
+   
+以上でサンプルアプリケーションをK8sクラスター上にデプロイし，外部からアクセス可能な状態にできました。
 
-
-おめでとうございます。あなたのアプリケーションをK8sクラスター上にデプロイ完了しました。
-
-次のハンズオンはこちら [Lab2](../Lab2/README.md) です。 
-Lab1で作成したK8sコンテンツを削除する場合は，以下のコマンドを実行します。
+最後に， **Lab1で作成したK8sリソースを以下のコマンドで削除** します。
 
   1. Deploymentを削除する `$ kubectl delete deployment guestbook`.
 
   2. Serviceを削除する `$ kubectl delete service guestbook`.
 
+次のハンズオンはこちら [Lab2](../Lab2/README.md) です。 
