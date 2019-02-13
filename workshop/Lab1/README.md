@@ -1,4 +1,4 @@
-# Lab 1. Kubernetesクラスターへのアプリケーションデプロイ
+# Lab 1) Kubernetesクラスターへのアプリケーションデプロイ
 Kubernetesクラスターへのアプリケーションのデプロイ方法を学びます。
 
 Webサイトのゲストブック機能を提供するシンプルなWebアプリケーション(guestbook)を使用します。
@@ -109,8 +109,16 @@ DockerHub上に，`ibmcom/guestbook:v1` という名前でビルド済Dockerイ�
 
 最後に， **Lab1で作成したK8sリソースを以下のコマンドで削除** します。
 
-  1. Deploymentを削除する `$ kubectl delete deployment guestbook`.
+  ```bash
+  1) Deploymentを削除する
+  $ kubectl delete deployment guestbook
 
-  2. Serviceを削除する `$ kubectl delete service guestbook`.
+  2) Serviceを削除する
+  $ kubectl delete service guestbook
+
+  3) 確認する
+  $ kubectl get pods
+  
+  ```
 
 次のハンズオンはこちら [Lab2](../Lab2/README.md) です。 

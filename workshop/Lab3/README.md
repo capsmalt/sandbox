@@ -72,7 +72,7 @@ spec:
 
    この構成ファイルを使用してDeploymentを作成する場合，以下のコマンドを実行します。
 
-   ``` console
+   ```bash
    $ kubectl create -f guestbook-deployment.yaml
    deployment "guestbook-v1" created
    ```
@@ -82,14 +82,14 @@ spec:
   生成済の全てのPodの中から，labelが "app" で，その値が "guestbook" であるPodを一覧表示することが可能です。
   labelは，構成ファイル(yaml)内の `spec.template.metadata.labels` という項目の値を指します。
 
-   ```console 
+   ```bash
    $ kubectl get pods -l app=guestbook
    ```
 
 構成ファイルのレプリカ数を変更した場合，Kubernetesはリクエストに合わせて，Podの追加/削除を行います。構成の変更は以下のコマンドで行えます。
 (今回は閲覧のみで，値の変更はしません)
 
-   ```console
+   ```bash
    $ kubectl edit deployment guestbook-v1
    ```
 
@@ -97,7 +97,7 @@ spec:
 
 Deploymentを作成するために使ったDeploymentファイルを編集して，変更を加えることができます。手元で編集した後に以下のコマンドで，変更を反映させられます。
 
-   ```console
+   ```bash
    $ kubectl apply -f guestbook-deployment.yaml
    ```
 
@@ -127,7 +127,7 @@ spec:
 
 - Deploymentを作成した時と同じコマンドを使って，guestbook-serviceを作成しましょう
 
-  ` $ kubectl create -f guestbook-service.yaml `
+  ` $ kubectl create -f guestbook-service.yaml`
 
 - ブラウザ上で以下のURLからgurstbookアプリの動作をテストします
   `<your-cluster-ip>:<node-port>`
@@ -182,13 +182,13 @@ spec:
 
 - RedisのDeploymentを作成します:
 
-    ```console
+    ```bash
     $ kubectl create -f redis-master-deployment.yaml
     ```
 
 - RedisサーバーのPod動作を確認します:
 
-    ```console
+    ```bash
     $ kubectl get pods -l app=redis,role=master
     NAME                 READY     STATUS    RESTARTS   AGE
     redis-master-q9zg7   1/1       Running   0          2d
@@ -196,14 +196,14 @@ spec:
 
 - スタンドアローン動作するRedisをテストします:
 
-    ` $ kubectl exec -it redis-master-q9zg7 redis-cli `
+    `$ kubectl exec -it redis-master-q9zg7 redis-cli`
 
     "kubectl exec" コマンドは，指定されたコンテナ内で，2つ目のプロセスを開始します。
     今回は，"redis-master-q9zg7"というコンテナ内で，"redis-cli" コマンドを実行しました。
 
     コンテナ内に入れば，"redis-cli" コマンドを使って，Redisデータベースが正常に動作しているか確認したり，必要に応じて構成したりできます。
 
-    ```console
+    ```bash
     redis-cli> ping
     PONG
     redis-cli> exit
@@ -239,7 +239,7 @@ spec:
 
 - データベースを使用するRedis serviceを発見できるようにguestbookを再起動します:
 
-    ```console
+    ```bash
     $ kubectl delete deploy guestbook-v1 
     $ kubectl create -f guestbook-deployment.yaml
     ```
@@ -255,14 +255,14 @@ spec:
 
 しかし，一般的に言われる主なボトルネックは，各リクエストを処理するデータベース・サーバーを一つしか持っていないことです。一つのシンプルな解決策は，読み・書き用に異なるデータベースを用いて分離することで，データ一貫性を達成することです。
 
-![rw_to_master](../images/Master.png)
+![rw_to_master](images/Master.png)
 
 `redis-slave`という名前のDeploymentを作成し，データの読み(read)を管理するredisデータベースと対話できるようにします。
 データを読む(read)用のいくつかのインスタンスを動作させて，データベースをスケールさせます。
 
 Redis slaveのdeploymentは2つのレプリカを動作するように構成されます:
 
-![w_to_master-r_to_slave](../images/Master-Slave.png)
+![w_to_master-r_to_slave](images/Master-Slave.png)
 
 **redis-slave-deployment.yaml**
 
@@ -295,65 +295,74 @@ spec:
 ```
 
 - redis slave deploymentを作成します
- ``` $ kubectl create -f redis-slave-deployment.yaml ```
 
- - 全てのslaveレプリカが動作しているか確認します
- ```console
-$ kubectl get pods -l app=redis,role=slave
-NAME                READY     STATUS    RESTARTS   AGE
-redis-slave-kd7vx   1/1       Running   0          2d
-redis-slave-wwcxw   1/1       Running   0          2d
- ```
+  ```
+  $ kubectl create -f redis-slave-deployment.yaml
+  ```
+
+- 全てのslaveレプリカが動作しているか確認します
+
+  ```bash
+  $ kubectl get pods -l app=redis,role=slave
+  NAME                READY     STATUS    RESTARTS   AGE
+  redis-slave-kd7vx   1/1       Running   0          2d
+  redis-slave-wwcxw   1/1       Running   0          2d
+  ```
 
 - redis slaveのいずれかのPod内コンテナに入り，データベースを正しく閲覧できるか確認します
 
- ```console
-$ kubectl exec -it redis-slave-kd7vx  redis-cli
-127.0.0.1:6379> keys *
-1) "guestbook"
-127.0.0.1:6379> lrange guestbook 0 10
-1) "hello world"
-2) "welcome to the Kube workshop"
-127.0.0.1:6379> exit
-```
+  ```bash
+  $ kubectl exec -it redis-slave-kd7vx  redis-cli
+  127.0.0.1:6379> keys *
+  1) "guestbook"
+  127.0.0.1:6379> lrange guestbook 0 10
+  1) "hello world"
+  2) "welcome to the Kube workshop"
+  127.0.0.1:6379> exit
+  ```
 
 次に，Redis slave serviceを公開します。
 一度デプロイされたら，"読み(read)"操作は `redis-slave` podに，"書き(write)"操作は `redis-master` podに送信されるように構成されます。
 
 **redis-slave-service.yaml**
 
-```yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: redis-slave
-  labels:
-    app: redis
-    role: slave
-spec:
-  ports:
-  - port: 6379
-    targetPort: redis-server
-  selector:
-    app: redis
-    role: slave
-```
+  ```yaml
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: redis-slave
+    labels:
+      app: redis
+      role: slave
+  spec:
+    ports:
+    - port: 6379
+      targetPort: redis-server
+    selector:
+      app: redis
+      role: slave
+  ```
 
 - Redis slaveに接続するためのServiceを作成します
-    ``` $ kubectl create -f redis-slave-service.yaml ```
+
+  ```
+  $ kubectl create -f redis-slave-service.yaml
+  ```
 
 - slave serviceを発見できるようにguestbookアプリケーションを再始動します
-    ```console
-    $ kubectl delete deploy guestbook-v1
-    $ kubectl create -f guestbook-deployment.yaml
-    ```
+
+  ```bash
+  $ kubectl delete deploy guestbook-v1
+  $ kubectl create -f guestbook-deployment.yaml
+  ```
     
-- ブラウザ上で以下のURLからgurstbookアプリの動作をテストします:
+- ブラウザ上で以下のURLからgurstbookアプリの動作をテストします
+
   `<your-cluster-ip>:<node-port>`
 
-以上でLab3のハンズオンは完了です。以下のコマンドを使用して，作成したKubernetesリソースを削除しましょう。
+以上でLab3のハンズオンは完了です。以下のコマンドを使用して，作成したKubernetesリソースを削除します。
 
-```console
+```bash
 $ kubectl delete -f guestbook-deployment.yaml
 $ kubectl delete -f guestbook-service.yaml
 $ kubectl delete -f redis-slave-service.yaml

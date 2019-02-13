@@ -1,77 +1,80 @@
-# Lab 2: Deployment のスケーリングとアップデート
+# Lab 2) Deployment のスケーリングとアップデート
 
 Lab2では，Deploymentのインスタンス数を増減させるスケーリングと，安全にロールアウトさせながらアプリケーションをアップデートする方法を学びます。 
 
-このLabを実施するには，`guestbook` アプリケーションのDeploymentが動作している必要があります。
-前のハンズオン(Lab1)の最後に削除済の場合は，以下の手順で再度作成してください。
+Lab2を実施するには，`guestbook` アプリケーションのDeploymentが動作している必要があります。以下の手順で `Deployment` や `Service` をデプロイしてください。
 
 実行例:
 
-```console
+```bash
 $ kubectl run guestbook --image=ibmcom/guestbook:v1
 $ kubectl expose deployment guestbook --type="NodePort" --port=3000
 ```
-    
-# 1. レプリカ数(replica)の指定によるアプリケーションのスケーリング
 
-レプリカ (*replica*) は，実行中のServiceを含むPodの複製です。複数のレプリカを用意することで，アプリケーションの負荷増大に対応できるリソースを保証できます。
+## 1. レプリカ数(replica)の指定によるアプリケーションのスケーリング
+同じアプリケーションが動作するPodを複数稼働させることによって負荷増大や，障害に対しての可用性を高めることができます。Kubernetesでは `ReplicaSet` を使用することで，Pod(Deployment)を簡単に複製できます。
 
-1. `kubectl` は `scale` というサブコマンドを提供しています。既存のDeployment数を変更するために使用します。現在1インスタンスで動作する `guestbook` を 10インスタンスにキャパシティを増やしてみます。
+1. `kubectl` CLI は `scale` というサブコマンドを提供しています。既存のDeployment数を変更するために使用します。現在は1インスタンスで動作している `guestbook` を 10インスタンスで動作するように複製します。
 
     実行例:
 
-   ``` console
-   $ kubectl scale --replicas=10 deployment guestbook
-   deployment "guestbook" scaled
-   ```
+    ```bash
+    $ kubectl scale --replicas=10 deployment guestbook
+    deployment.extensions/guestbook scaled
+    ```
 
-   Kubernetesは，初期構成と同じ構成で 9つの新しいPodを作成することで，desired state (今回は10)を満たすように動作します。
+   >補足:  
+   > Kubernetesのコントローラは，宣言された値(`--replicas=10`)を満たすように現在の状態をアップデートしようと働きかけます。今回のケースでは，既に1つのインスタンスが動作しているため，9つの新しいPodを作成することで，`desired state (今回は10)` を満たすように動作します。
 
-2. ロールアウトされた変更内容を確認するために次のコマンドを実行します。 `kubectl rollout status deployment guestbook`.
+2. スケーリング(ロールアウト)していく様子を以下のコマンドで確認します。
 
-    ※処理が早く完了した場合，以下のメッセージが表示されない場合があります
+    `kubectl rollout status deployment guestbook`
 
-   ```console
-   $ kubectl rollout status deployment guestbook
-   Waiting for rollout to finish: 1 of 10 updated replicas are available...
-   Waiting for rollout to finish: 2 of 10 updated replicas are available...
-   Waiting for rollout to finish: 3 of 10 updated replicas are available...
-   Waiting for rollout to finish: 4 of 10 updated replicas are available...
-   Waiting for rollout to finish: 5 of 10 updated replicas are available...
-   Waiting for rollout to finish: 6 of 10 updated replicas are available...
-   Waiting for rollout to finish: 7 of 10 updated replicas are available...
-   Waiting for rollout to finish: 8 of 10 updated replicas are available...
-   Waiting for rollout to finish: 9 of 10 updated replicas are available...
-   deployment "guestbook" successfully rolled out
-   ```
+    実行例:
 
-3. ロールアウトが完了したら，Podの動作状況を次のコマンドで確認します。 `kubectl get pods`.
+    ```bash
+    $ kubectl rollout status deployment guestbook
+    Waiting for deployment "guestbook" rollout to finish: 1 of 10 updated replicas are available...
+    Waiting for deployment "guestbook" rollout to finish: 2 of 10 updated replicas are available...
+    Waiting for deployment "guestbook" rollout to finish: 3 of 10 updated replicas are available...
+    Waiting for deployment "guestbook" rollout to finish: 4 of 10 updated replicas are available...
+    Waiting for deployment "guestbook" rollout to finish: 5 of 10 updated replicas are available...
+    Waiting for deployment "guestbook" rollout to finish: 6 of 10 updated replicas are available...
+    Waiting for deployment "guestbook" rollout to finish: 7 of 10 updated replicas are available...
+    Waiting for deployment "guestbook" rollout to finish: 8 of 10 updated replicas are available...
+    Waiting for deployment "guestbook" rollout to finish: 9 of 10 updated replicas are available...
+    deployment "guestbook" successfully rolled out
+    ```
 
-   以下のように，Deploymentのレプリカが10つ確認できるはずです。
+3. Podの動作状況を次のコマンドで確認します。
 
-   ```console
-   $ kubectl get pods
-   NAME                        READY     STATUS    RESTARTS   AGE
-   guestbook-562211614-1tqm7   1/1       Running   0          1d
-   guestbook-562211614-1zqn4   1/1       Running   0          2m
-   guestbook-562211614-5htdz   1/1       Running   0          2m
-   guestbook-562211614-6h04h   1/1       Running   0          2m
-   guestbook-562211614-ds9hb   1/1       Running   0          2m
-   guestbook-562211614-nb5qp   1/1       Running   0          2m
-   guestbook-562211614-vtfp2   1/1       Running   0          2m
-   guestbook-562211614-vz5qw   1/1       Running   0          2m
-   guestbook-562211614-zksw3   1/1       Running   0          2m
-   guestbook-562211614-zsp0j   1/1       Running   0          2m
-   ```
+    `kubectl get pods`
 
-**Tip:** 可用性を向上させるもう一つの方法
-[add clusters and regions](https://console.bluemix.net/docs/containers/cs_planning.html#cs_planning_cluster_config)
-クラスター自体，あるいはリージョンを追加することでも可用性を向上させられます。
+    実行例:
 
-![HA with more clusters and regions](../images/cluster_ha_roadmap.png)
+    ```bash
+    $ kubectl get pods
+    NAME                         READY   STATUS    RESTARTS   AGE
+    guestbook-75786d799f-4dj4q   1/1     Running   0          3m
+    guestbook-75786d799f-6bcbm   1/1     Running   0          3m
+    guestbook-75786d799f-6tfrt   1/1     Running   0          3m
+    guestbook-75786d799f-7lh95   1/1     Running   0          3m
+    guestbook-75786d799f-8qf56   1/1     Running   0          5m
+    guestbook-75786d799f-hrw2v   1/1     Running   0          3m
+    guestbook-75786d799f-lb9r2   1/1     Running   0          3m
+    guestbook-75786d799f-mf5x9   1/1     Running   0          3m
+    guestbook-75786d799f-n5tw5   1/1     Running   0          3m
+    guestbook-75786d799f-x22sx   1/1     Running   0          3m
+    ```
+
+    >補足:  
+    > 可用性を向上させるもう一つの方法
+    > [add clusters and regions](https://console.bluemix.net/docs/containers/cs_planning.html#cs_planning_cluster_config)
+    > 同一データセンター内で複数クラスターにする方法があります。複数のデータセンターに同一K8sクラスターを動作させることでより高可用にできます。
+    > 
+    > ![HA with more clusters and regions](images/cluster_ha_roadmap.png)
 
 # 2. アプリケーションのアップデートとロールバック
-
 Kubernetesは，アプリケーションを新しいコンテナイメージにローリングアップデートする機能を提供します。これは動作中のコンテナイメージを容易にアップデート，または問題が起きた際には容易にロールバックできるようにします。
 
 以前のハンズオン(Lab1)では `v1` タグが付与されたイメージを使用していました。アップグレードを実施する際には， `v2` タグが付与されたイメージを使用します。
