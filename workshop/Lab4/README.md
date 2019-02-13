@@ -1,6 +1,6 @@
-# Lab4: Helmチャートを使用したアプリケーションのデプロイ
+# Lab4) Helmチャートを使用したアプリケーションのデプロイ
 
-このLabでは、Kubernetesのパッケージング技術の1つである [Helm](https://helm.sh/) を利用したデプロイの方法を学びます。
+Lab4では、Kubernetesのパッケージング技術の1つである [Helm](https://helm.sh/) を利用したデプロイの方法を学びます。
 
 1. レガシーなJava（J2EE）のWebアプリケーションであるJPetStoreをDockerコンテナ化（ハンズオンでは実施しません）
 2. Helmを利用して [IBM Cloud Kubernetes Service](https://www.ibm.com/cloud/container-service) にデプロイ
@@ -8,17 +8,14 @@
 ![](images/jpet-architecture.png)
 
 ## ソースコードの入手
-
-Lab4,5に使用するリポジトリをクローンします:
+Lab4，5に使用するリポジトリをクローンします:
 
     ```bash
-    git clone https://github.com/kissyyy/jpetstore-kubernetes
-
-    cd jpetstore-kubernetes
+    $ git clone https://github.com/kissyyy/jpetstore-kubernetes
+    $ cd jpetstore-kubernetes
     ```
 
 #### フォルダーの構成
-
 クローンしたリポジトリは以下のファイルから構成されています。
 
 | フォルダー | 説明 |
@@ -29,7 +26,6 @@ Lab4,5に使用するリポジトリをクローンします:
 |[**pet-images**](/pet-images)| 動作確認用の動物画像ファイル |
 
 ## 既存アプリケーションのコンテナ化
-
 Lab4では既に公開済みのPublic Imageを利用します。
 そのため以下の操作は実施する必要はありませんが興味のある方はぜひ試してみてください。
 
@@ -38,32 +34,30 @@ Lab4では既に公開済みのPublic Imageを利用します。
 ## アプリケーションのデプロイ
 
 ### Helmを利用したデプロイ
-
 Helmは、Kubernetesのパッケージ・マネージャーです。 Helm チャートと呼ばれる定義ファイルを使用して、Kubernetes アプリケーションの定義やインストール、アップグレードを行うことができます。
 
 #### Helmのセットアップ（これ必要か？要検証）
-
 Helm チャートを IBM Cloud Kubernetes Service で使用するために、クラスターに Helm インスタンスをインストールして初期化する必要があります。
 
 [Helm](https://docs.helm.sh/using_helm/#installing-helm)をインストールします。
 
 クラスターのセキュリティーを維持するため、IBM Cloud kube-samples リポジトリーから以下の .yaml ファイルを適用することによって、Tiller のサービス・アカウントを kube-system 名前空間に作成し、tiller-deploy ポッドに対する Kubernetes RBAC クラスター役割バインディングを作成します。 注: kube-system 名前空間のサービス・アカウントとクラスター役割バインディングを使用して Tiller をインストールするには、cluster-admin 役割が必要です。
 
-```bash
- kubectl apply -f https://raw.githubusercontent.com/IBM-Cloud/kube-samples/master/rbac/serviceaccount-tiller.yaml
- ```
+    ```bash
+    $ kubectl apply -f https://raw.githubusercontent.com/IBM-Cloud/kube-samples/master/rbac/serviceaccount-tiller.yaml
+    ```
 
- 作成したサービス・アカウントを使用して、Helm を初期化し、tiller をインストールします。
+作成したサービス・アカウントを使用して、Helm を初期化し、tiller をインストールします。
 
- ```bash
-helm init --service-account tiller
-```
+    ```bash
+    $ helm init --service-account tiller
+    ```
 
 クラスター内の tiller-deploy ポッドの「状況」が「実行中」になっていることを確認します。
 
-```bash
-kubectl get pods -n kube-system -l app=helm
-```
+    ```bash
+    $ kubectl get pods -n kube-system -l app=helm
+    ```
 
 #### Helmを利用したアプリのデプロイ
 
@@ -71,13 +65,13 @@ Helm チャートを使用してJPetStore アプリをデプロイします。
 
     ```bash
     # Change into the helm directory
-    cd ../helm
+    $ cd ../helm
 
     # Initialize helm
-    helm init
+    $ helm init
 
     # Create the JPetstore app
-    helm install --name jpetstore ./modernpets
+    $ helm install --name jpetstore ./modernpets
     ```
 
     出力
@@ -109,13 +103,13 @@ Lab3までと同様、yamlファイルを使用してデプロイすることも
 yamlファイルでデプロイをする場合は以下のようになります。
 
 ```bash
-kubectl apply -f jpetstore.yaml
+$ kubectl apply -f jpetstore.yaml
 ```
 
 JpetStoreのWebコンテナとDBコンテナがデプロイされます。
 
 ```bash
-kubectl get all
+$ kubectl get all
 ```
 
 ## 動作確認
