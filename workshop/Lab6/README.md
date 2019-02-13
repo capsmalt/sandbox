@@ -6,9 +6,9 @@ Lab6では、Helmの理解のために、サンプルのチャートを作って
 ## チャートを作るための参考資料
 Helmの公式サイトにチャート開発のためのドキュメントがまとめられています。
 
-https://docs.helm.sh/developing_charts/
-https://docs.helm.sh/chart_template_guide/
-https://docs.helm.sh/chart_best_practices/
+- https://docs.helm.sh/developing_charts/
+- https://docs.helm.sh/chart_template_guide/
+- https://docs.helm.sh/chart_best_practices/
 
 ## チャートの作成
 チャートの雛形を作成してみます。任意の作業ディレクトリで以下のコマンドを実行してください。
@@ -92,7 +92,9 @@ Go Template言語で環境により異なる値が記載されています
    ```
 
 ## サンプル・チャートを利用する
-まずはこのままサンプルを利用してデプロイしてみましょう。「helm install <任意の名前> ＜チャート・ディレクトリー＞」を実行します。
+まずはこのままサンプルを利用してデプロイしてみましょう。
+「helm install <任意の名前> ＜チャート・ディレクトリー＞」を実行します。
+以下のような結果が出力されることを確認します。
 
    ```bash
    $helm install --name sample ./mychart
@@ -251,13 +253,159 @@ Go Template言語で環境により異なる値が記載されています
    ID                         パブリック IP     プライベート IP   マシン・タイプ   状態     状況    ゾーン   バージョン   
    kube-hou02-xxxxxxxxxx-w1   184.xxx.x.xx    10.76.194.59    free             normal   Ready   hou02    1.10.12_1543 
    ```
+ 
+## リソースを追加する
+新しくConfig Mapを作成し、アプリケーションに反映させてみましょう。
+今回の例ではConfig Mapとしてnginxのindex.htmlのテンプレートを登録し、表示されるメッセージをhelmチャートのValueで変更できるようにします。
+
+まずは新しいhelmのvalueファイル (value-new.yaml)を開き、以下のようにapp.nameの設定を追加します。
+
+   ```bash
+   ＃ value-new.yamlに設定追加 (serviceの項目の上にapp.nameを追加)
+   app:
+      name: IKS-san
+   
+   service:
+      type: NodePort
+      port: 80
+      nodePort: 30001
+   ```
+
+続いて、チャートのtemplatesディレクトリにindex-configmap.yamlを作成します。21行目がWebブラウザで確認できるメッセージの部分です。
+
+   ```bash
+   # mychart/templates/index-configmap.yamlの内容
+   apiVersion: v1
+   kind: ConfigMap
+   metadata:
+     name: index-config 
+   data:
+     index-config: index.html 
+     index.html: |
+       <!DOCTYPE html>
+       <html>
+       <head>
+       <title>Welcome to nginx!</title>
+       <style>
+           body {
+               width: 35em;
+               margin: 0 auto;
+               font-family: Tahoma, Verdana, Arial, sans-serif;
+           }
+       </style>
+       </head>
+       <body>
+       <h1>Welcome to __NAME__</h1>
+       <p>If you see this page, the nginx web server is successfully installed and working. Further configuration is required.</p>
+
+       <p>For online documentation and support please refer to
+       <a href="http://nginx.org/">nginx.org</a>.<br/>
+       Commercial support is available at
+       <a href="http://nginx.com/">nginx.com</a>.</p>
+
+       <p><em>Thank you for using nginx.</em></p>
+       </body>
+       </html>
+   ```
+
+さらに、チャートのtemplatesディレクトリにあるdeployment.yamlを編集します。
+
+   ```bash
+   # mychart/templates/deployment.yamlの内容
+   apiVersion: apps/v1beta2
+   kind: Deployment
+   metadata:
+     name: {{ template "mychart.fullname" . }}
+     labels:
+       app: {{ template "mychart.name" . }}
+       chart: {{ template "mychart.chart" . }}
+       release: {{ .Release.Name }}
+       heritage: {{ .Release.Service }}
+   spec:
+     replicas: {{ .Values.replicaCount }}
+     selector:
+       matchLabels:
+         app: {{ template "mychart.name" . }}
+         release: {{ .Release.Name }}
+     template:
+       metadata:
+         labels:
+           app: {{ template "mychart.name" . }}
+           release: {{ .Release.Name }}
+       spec:
+         volumes:
+         - name: index-config
+           configMap:
+             name: index-config
+         - name: config-volume
+           emptyDir: {}
+         initContainers:
+         - name: init-myservice
+           image: busybox
+           command: ['sh', '-c', 'cat /etc/config-template/index.html | sed "s/__NAME__/{{ .Values.app.name }}/" > /etc/config/index.html']
+           env:
+           - name: mypassword
+             valueFrom:
+               secretKeyRef:
+                 name: my-password
+                 key: password
+           volumeMounts:
+           - name: config-volume
+             mountPath: /etc/config
+           - name: index-config
+             mountPath: /etc/config-template/index.html
+             readOnly: true
+             subPath: index.html
+         containers:
+           - name: {{ .Chart.Name }}
+             image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+             imagePullPolicy: {{ .Values.image.pullPolicy }}
+             volumeMounts:
+             - name: config-volume
+               mountPath: /usr/share/nginx/html/
+             ports:
+               - name: http
+                 containerPort: 80
+                 protocol: TCP
+             livenessProbe:
+               httpGet:
+                 path: /
+                 port: http
+             readinessProbe:
+               httpGet:
+                 path: /
+                 port: http
+             resources:
+   {{ toYaml .Values.resources | indent 12 }}
+       {{- with .Values.nodeSelector }}
+         nodeSelector:
+   {{ toYaml . | indent 8 }}
+       {{- end }}
+       {{- with .Values.affinity }}
+         affinity:
+   {{ toYaml . | indent 8 }}
+       {{- end }}
+       {{- with .Values.tolerations }}
+         tolerations:
+   {{ toYaml . | indent 8 }}
+       {{- end }}
+   ```
+
+完了したら再びhelm upgradeで更新します。
+
+   ```bash
+   helm upgrade -f value-new.yaml sample ./mychart/
+   ```
+
+あとはWebブラウザでアクセスし、画面の結果を確認します。
+メッセージがhelmのvalueファイル (value-new.yaml)に指定した文字に変わっていれば問題なく動いていることが確認できます。
 
 ## お片付け
 
 ```bash
-# Use "helm delete" to delete the two apps
+# helmで作成したリリースを削除します
 helm delete sample --purge
 
-# Delete your entire cluster!
-ibmcloud cs cluster-rm yourclustername
+# ハンズオンが終わったらクラスターを削除します
+ibmcloud ks cluster-rm <クラスター名>
 ```
