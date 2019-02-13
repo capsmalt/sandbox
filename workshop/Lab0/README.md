@@ -2,7 +2,7 @@
 Kubernetes(K8s)ハンズオンを実施するための事前準備を行います。
 
 ## 0. IKSを使ったハンズオンを実施するための準備
-K8sクラスターはIKS(IBM Cloud Kubernetes Service)を使用します。IKSに接続できることをゴールとして以下の準備を行います。
+K8sクラスターは[IKS(IBM Cloud Kubernetes Service)](https://www.ibm.com/cloud/container-service)を使用します。IKSに接続できることをゴールとして以下の準備を行います。
 
 - IBM Cloud CLI(`ibmcloud`) と関連プラグイン，K8s CLIなどの導入
 - K8sクラスター(IKS)の構成
@@ -14,7 +14,7 @@ K8sクラスターはIKS(IBM Cloud Kubernetes Service)を使用します。IKS�
 
 2. K8sクラスターの作成 **(※セミナー会場にて実施済のため操作は不要です)**
 
-    [IBM CloudのWeb画面](https://cloud.ibm.com/containers-kubernetes/catalog/cluster/create)からクラスターを作成します。
+    [IBM Cloud](https://cloud.ibm.com/containers-kubernetes/catalog/cluster/create)でクラスターを作成します。  
     ibmcloudコマンドで作成する場合は， `$ ibmcloud cs cluster-create --name <name-of-cluster>` コマンドを実行します。
 
 3. CLI で IBM Cloudにログイン
@@ -114,8 +114,6 @@ K8sクラスターはIKS(IBM Cloud Kubernetes Service)を使用します。IKS�
     > ```
  
 6. 5.で取得した 自身の`KUBECONFIG` の情報をexport(set)します
-    
-    4.でコピーしたものをペーストします。
 
     実行例:
     
