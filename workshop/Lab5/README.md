@@ -10,19 +10,20 @@ Lab4ではWebとDBから構成されるレガシーなJavaアプリケーショ�
 `mmssearch`は画像認識の機能をもったチャットアプリケーションです。
 画像認識にはIBM Cloudの画像認識サービス([Watson Visual Recognition](https://www.ibm.com/watson/services/visual-recognition/))を使用します。
 
-![](images/mmssearch-architecture.png)
+![](../images/mmssearch-architecture.png)
 
 ## Visual Recognitionサービスの作成
 
-ブラウザで [IBM Cloudのカタログページ](https://cloud.ibm.com/catalog/) にアクセスし、Visual Recognitionサービスを作成します。
+ブラウザで [IBM Cloudのカタログページ](https://cloud.ibm.com/catalog/) にアクセスし、「AI」カテゴリにある「Visual Recognition」を選択します。
 
 ![](../images/catalog.png)
 
-サービスを作成する地域は「ダラス(Dallas)」、サービスプランは「ライト（Lite）」を選択し、「作成」をクリックします。
+デフォルトでサービスを作成する地域が「ダラス(Dallas)」、サービスプランは「ライト（Lite）」となっています。
+「作成」をクリックしてサービスインスタンスを作成します。
 
 ![](../images/createvr.png)
 
-サービスが作成されると画面が遷移し、サービスの詳細画面が表示されます。「管理」画面に遷移すると、API呼び出しをするために必要な**APIキー**が取得できます。このAPIキーはこの後使うのですぐに参照できるようにしておいてください。
+サービスが作成されると画面が遷移し、サービスの詳細画面が表示されます。「管理」画面に遷移すると、API呼び出しをするために必要な**APIキー**が取得できます。このAPIキーはこの後使うので参照できるようにしておいてください。
 
 ![](../images/vr_apikey.png)
 
@@ -30,7 +31,7 @@ Lab4ではWebとDBから構成されるレガシーなJavaアプリケーショ�
 
 Kubernetes上のアプリケーションから外部サービスを呼び出すための設定を行います。
 外部サービスを呼び出すためにはAPIキーやユーザID/パスワードが必要となりますが、アプリケーションとは切り離して別の設定ファイルとして管理することが推奨されています。
-Kubernetesで設定ファイルを管理する方法として`Configmap` と `Secret` の2種類がありますが、APIキーのようなより機密性のな情報についてはSecretを使用することが推奨されています。
+Kubernetesで設定ファイルを管理する方法として`Configmap` と `Secret` の2種類がありますが、APIキーのようなより機密性のな情報については`Secret`を使用することが推奨されています。
 
 テンプレートファイル**mms-secrets.json.template**を使用して、**mms-secrets.json** ファイルを作成します:
 
@@ -92,7 +93,6 @@ kubectl get secret mms-secret -o yaml
           items:
           - key: mms-secrets
             path: mms-secrets.json
-`
 ```
 
 これにより`/etc/secret/mms-secrets.json`がマウントされます。
@@ -113,6 +113,7 @@ ibmcloud ks cluster-service-bind mycluster default visual-recognition-xx
 なおこの場合`jpetstore-watson-nodeport.yaml`を変更する必要あります。
 
 ```yaml
+    # 中略
     spec:
       containers:
       - name: mmssearch
@@ -141,31 +142,31 @@ ibmcloud ks cluster-service-bind mycluster default visual-recognition-xx
 
 Helm チャートを使用してMMSSearch アプリをデプロイします。
 
-    ```bash
-    # Change into the helm directory
-    cd ../helm
+```bash
+# Change into the helm directory
+cd ../helm
 
-    # Ceate the MMSSearch microservice
-    helm install --name mmssearch ./mmssearch
-    ```
+# Ceate the MMSSearch microservice
+helm install --name mmssearch ./mmssearch
+```
 
-    出力：
+出力：
 
-    ```bash
-    NAME:   mmssearch-helm
-    LAST DEPLOYED: Wed Feb 13 15:49:39 2019
-    NAMESPACE: default
-    STATUS: DEPLOYED
+```bash
+NAME:   mmssearch-helm
+LAST DEPLOYED: Wed Feb 13 15:49:39 2019
+NAMESPACE: default
+STATUS: DEPLOYED
 
-    RESOURCES:
-    ==> v1/Service
-    NAME       CLUSTER-IP      EXTERNAL-IP  PORT(S)         AGE
-    mmssearch  172.21.216.131  <nodes>      8080:30293/TCP  1s
+RESOURCES:
+==> v1/Service
+NAME       CLUSTER-IP      EXTERNAL-IP  PORT(S)         AGE
+mmssearch  172.21.216.131  <nodes>      8080:30293/TCP  1s
 
-    ==> v1beta2/Deployment
-    NAME                      KIND
-    mmssearch-helm-mmssearch  Deployment.v1beta2.apps
-    ```
+==> v1beta2/Deployment
+NAME                      KIND
+mmssearch-helm-mmssearch  Deployment.v1beta2.apps
+```
 
 ### YAMLファイルを使用したデプロイ
 
@@ -183,19 +184,17 @@ kubectl get all
 
 ## 動作確認
 
-
 ブラウザ上で以下のURLからjpetアプリの動作をテストします:
 `<クラスターのPublic IP>:<ポート>`にアクセスしてください。
 
 `pet-images`ディレクトリにある画像をアップロードすると、画像認識を行い、JpetStoreにある種類かどうかが返ってきます。
 
-   ![](images/webchat.png)
+   ![](../images/webchat.png)
 
 ## アプリの変更（余力があれば書きます）
 
 mmssearch.go or index.htmlを変更し再度docker buildする。
 ビルドはibmclodu cr buildで実行
-
 
 ## お片付け
 
