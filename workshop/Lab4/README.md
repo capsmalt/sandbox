@@ -145,4 +145,4 @@ jpetstoreweb-5f7c96bc8b   2         2         2         33s
    ![](images/petstore.png)
 
 以上でLab4は終了です。  
-最後のハンズオンは[Lab5](../Lab5/README.md)です。
+最後のハンズオンは[Lab5](../Lab5/)です。
