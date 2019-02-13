@@ -1,43 +1,32 @@
-# Lab 3: 構成ファイルを使用した宣言的な方法によるスケーリングおよびアップデート
+# Lab 3) マニフェストファイルを使用したスケーリングおよびアップデート
+Lab1，2で使用してきた`guestbook`アプリケーションと同じものを使用します。
+これまでとの違いは，`kubectl run`コマンドなどで直接Podを作成・開始するのではなく，マニフェストファイル(構成ファイル)を使用してアプリケーションのデプロイを行う点です。
 
-このハンズオンでは，Lab1，2で使用してきた guestbookアプリケーションと同じものをデプロイします。
-これまでとの違いは，`kubectl run`コマンドなどで直接Podを作成・開始するのではなく，構成ファイルを使用してアプリケーションのデプロイを行うことです。
-構成ファイルを使用することで，Kubernetesクラスターにおけるあらゆるリソースに対して，よりきめ細やかな管理ができるようになります。
+Kubernetesのコントローラーがマニフェストファイルの記述内容のステート(状態)に寄せていく「**宣言的** かつ，よりきめ細やかなりソース管理」をシンプルに実現できます。これがKubernetesを利用する最大の理由と言っても過言ではありません。
 
-構成ファイル(yaml)を引数にして `kubectl` コマンドを何度も実行するので，構成ファイルを使用したDeploymentやServiceの作成について体感してください。
+## 0. 事前準備 (リポジトリのクローン)
+まずはアプリケーションをGitHubからクローンして，該当ディレクトリに移動してください。
+複数バージョンのguestbookアプリケーションをKubernetes上にデプロイするためのマニフェストファイル(yaml)を配置しています。
 
-ではハンズオンを開始します。
-まずはアプリケーションをGitHubから取得してください。
+```bash
+マニフェストファイル群が用意されているリポジトリのクローンと，ディレクトリ移動
 
-```
 $ git clone https://github.com/capsmalt/guestbook.git
+$ cd guestbook/v1
 ```
 
-このリポジトリは複数バージョンのguestbookアプリケーションを含んでいます。構成ファイルを使用してアプリケーションをデプロイできるように各種yamlを準備しています。
+## 1. マニフェストファイルを使用したアプリケーションのスケーリング
+ここで実施する作業自体は3ステップです。
 
-git cloneが完了したら，そのディレクトリに移動してください。 
+- `guestbook-deployment.yaml` を使って `guestbook-v1`という名前のdeploymentを作成する (replicas=3 指定済)
+- `guestbook-service.yaml` を使って `guestbook` という名前のserviceを作成する
+- `guestbook-deployment.yaml` を編集して `3台構成`から`5台構成`にスケーリングさせる
 
-`$ cd guestbook` 
+上記自体は，コマンドを数回叩けば終わります。
+この章では，yamlファイルの中身について目を通して，マニフェストファイルがどんなものか理解してください。
 
-`v1` ディレクトリ配下にこのハンズオンで使用する全ての構成ファイルが配置されていますので移動します。
-
-`$ cd v1`
-
-# 1. 構成ファイルを使用したアプリケーションのスケーリング
-
-Kubernetesは，アプリケーションを実行用のPodを個々にデプロイできますが，多数のリクエストに応じてスケールさせる必要があります。
-Deploymentは，Pod群に似た集合を管理します。レプリカ数を指定して要求すると，Kubernetes Deployment Controllerは常にそのレプリカ数を維持しようとします。
-
-作成する全てのKubernetesオブジェクトは，2つのネストされたオブジェクトフィールドを持ちます。`spec`と`status`です。
-`spec`オブジェクトは，desired stateを定義します。`status`オブジェクトは，リソースの現在の状態のようにKubernetesシステムから提供される情報を含みます。
-
-前述の通り，Kubernetesは，現在の状態をdesired stateにしようと試みます。
-
-オブジェクトを作成する際には，`apiVersion`や`kind`，`metadata`，`name`，`labels`を作成することになります。またオプションで，オブジェクトが属する`namespace`を指定する場合もあります。
-
-次のguestbookアプリケーションのdeploymentの構成を見てみましょう。
-
-**guestbook-deployment.yaml**
+まずは，guestbookアプリケーションのdeploymentの構成を見てみましょう。
+**guestbook/v1/guestbook-deployment.yaml**
 
 ```yaml
 apiVersion: apps/v1
@@ -66,11 +55,15 @@ spec:
           containerPort: 3000
 ```
 
-上記の構成ファイルは，`guestbook-v1`という名前のdeploymentオブジェクトを作成します。同時に`ibmcom/guestbook:v1`イメージを動作させる1つのコンテナを含むPodを作成します。この構成ファイルによって，`replicas: 3` と指定されるため，Kubernetesは少なくとも3つのアクティブなPodが動作するように試みます。
+上記の構成ファイルは，`guestbook-v1`という名前のdeploymentオブジェクトを作成します。同時に`ibmcom/guestbook:v1`イメージを動作させる1つのコンテナを含むPodを作成します。この構成ファイルによって，`replicas: 3` と指定されるため，Kubernetesは少なくとも3つのアクティブなPodが動作し続けるように試みます。
 
-- guestbook deploymentの作成
+>補足:  
+> Kubernetesオブジェクトを作成する際には，yaml内で`apiVersion`や`kind`，`metadata`，`name`，`labels`，`namespace`などを指定できます。今回のようにdeploymentオブジェクトを生成する際は`kind: Deployment`のように指定します。他にも`Service`や`Pod`，`ConfigMap`，その他Kubernetesリソースの種類を指定することでマニフェストファイルから各種オブジェクトを作成できます。Deployment定義の場合は，`spec: `にレプリカ数や，使用するコンテナイメージ，ポートなどを指定しています。
 
-   この構成ファイルを使用してDeploymentを作成する場合，以下のコマンドを実行します。
+
+1. guestbookのdeploymentオブジェクトの作成
+
+   マニフェストファイルを使用してdeploymentをします。
 
    ```bash
    $ kubectl create -f guestbook-deployment.yaml
@@ -138,7 +131,7 @@ spec:
   および
   `$ ibmcloud cs workers <name-of-cluster>` でPublic IPを確認
 
-# 2. バックエンドサービスに接続
+## 2. バックエンドサービスに接続
 
 ディレクトリ配下のguestbookのソースコードを見ると，多様なデータストアをサポートしていることがわかります。
 デフォルトでは，メモリ上でguestbookエントリのログを保持する構成になっています。
