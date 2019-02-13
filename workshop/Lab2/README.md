@@ -1,6 +1,6 @@
 # Lab 2) アプリケーションのスケーリング と アップデート&ロールバック
 
-Lab2では，「アプリケーションのスケーリング」と「アップデート&ロールバック」する方法を学びます。 
+Lab2では，「アプリケーションのスケーリング」と「アップデート&ロールバック」する方法を学びます。  
 
 Lab2を実施するには，`guestbook` アプリケーションのDeploymentおよびServiceが動作している必要があります。以下の手順で `Deployment` や `Service` をデプロイしてください。
 
@@ -12,9 +12,11 @@ $ kubectl expose deployment guestbook --type="NodePort" --port=3000
 ```
 
 ## 1. レプリカ数(replica)の指定によるアプリケーションのスケーリング
-同じアプリケーションが動作するPodを複数稼働させることによって負荷増大や，障害に対しての可用性を高めることができます。Kubernetesでは `ReplicaSet` を使用することで，Pod(Deployment)を簡単に複製できます。
+一般的に，同じアプリケーションを複数稼働させることで，負荷増大や障害に対しての可用性を高めることができます。  
+K8sでは`ReplicaSet` によって，Pod(Deployment)の複製が可能です。
 
-1. `kubectl` CLI は `scale` というサブコマンドを提供しています。既存のDeployment数を変更するために使用します。現在は1インスタンスで動作している `guestbook` を 10インスタンスで動作するように複製します。
+1. `kubectl` CLI には `scale` というサブコマンドがあり、これを使うと既存のDeployment数を変更できます。  
+現在は1インスタンスで動作している `guestbook` を 10インスタンスで動作するように複製してみましょう。
 
     実行例:
 
@@ -24,9 +26,9 @@ $ kubectl expose deployment guestbook --type="NodePort" --port=3000
     ```
 
    >補足:  
-   > Kubernetesのコントローラは，宣言された値(`--replicas=10`)を満たすように現在の状態をアップデートしようと働きかけます。今回のケースでは，既に1つのインスタンスが動作しているため，9つの新しいPodを作成することで，`desired state (今回は10)` を満たすように動作します。
+   > Kubernetesのコントローラは，宣言された値(`desired state`，この場合は`--replicas=10`)を満たすように動きます。今回のケースでは，既に1つのインスタンスが動作しているため，9つの新しいPodを作成することで，10インスタンスという`desired state` を満たすように動作することになります。
 
-2. スケーリング(ロールアウト)していく様子を以下のコマンドで確認します。
+2. スケーリング(ロールアウト)していく様子を以下のコマンドで確認してみましょう。
 
     `kubectl rollout status deployment guestbook`
 
@@ -67,39 +69,39 @@ $ kubectl expose deployment guestbook --type="NodePort" --port=3000
     guestbook-75786d799f-x22sx   1/1     Running   0          3m
     ```
 
+    Podの数が10になっていることが確認できます。
+
     >補足:  
-    > 可用性を向上させるもう一つの方法
-    > [add clusters and regions](https://console.bluemix.net/docs/containers/cs_planning.html#cs_planning_cluster_config)
-    > 同一データセンター内で複数クラスターにする方法があります。複数のデータセンターに同一K8sクラスターを動作させることでより高可用にできます。
+    > Podの数を増やす以外に可用性を向上させる方法として，
+    > [複数のクラスター構成や複数のデータセンターによる冗長化](https://console.bluemix.net/docs/containers/cs_planning.html#cs_planning_cluster_config)があります。
+    > 同一データセンター内で複数クラスターしたり，複数のデータセンターに同一K8sクラスターを動作させることでより高可用な構成をとることが可能です。
     > 
     > ![HA with more clusters and regions](images/cluster_ha_roadmap.png)
 
 ## 2. アプリケーションのアップデートとロールバック
-Kubernetesは，アプリケーションを新しいコンテナイメージにローリングアップデートする機能を提供します。
-これは動作中のコンテナイメージをアップデートしたり，問題が起きた場合のロールバックなどを簡易にしてくれることを意味します。
+K8sは，アプリケーションを新しいバージョンのコンテナイメージにローリングアップデートする機能を提供します。  
+これにより動作中のコンテナイメージを無停止でアップデートしたり，問題が起きた場合に前のバージョンに戻すロールバックを簡易に実現できます。
 
 いままでは， `v1` タグが付与されたイメージを使用していました。
 
-具体的には， `$ kubectl run guestbook --image=ibmcom/guestbook:v1`のように指定していました。
+`$ kubectl run guestbook --image=ibmcom/guestbook:v1`
 
-新しいバージョンのコンテナイメージにアップデートする際には， `v2` タグを指定します。
+新しいバージョンの`v2`のコンテナイメージにアップデートしてみましょう。また、`v2`に変更した後再度`v1`に切り戻すロールバックも実施します。
 
-以降の手順で次の2パターンを実施します。
-
-- v2のコンテナイメージへのアップデート
-- v1のコンテナイメージへのロールバック
+- v1からv2のコンテナイメージへのアップデート
+- v2からv1のコンテナイメージへのロールバック
 
 ## v2のコンテナイメージへのアップデート
-1. `kubectl` コマンドと `set` サブコマンドを使用して，`v2` イメージを使用するように Deploymentをアップデートします。
+1. `kubectl` コマンドと `set` サブコマンドを使用して，`v2` のイメージを使用するように Deploymentをアップデートします。 
 
     実行例:
     
-    ```
+    ```bash
     $ kubectl set image deployment/guestbook guestbook=ibmcom/guestbook:v2
     deployment.extensions/guestbook image updated
     ```
 
-    **以下必要？？？？不要なのでは？要検討**
+    **以下必要？？？？不要なのでは？要検討** → なくてもいいかも・・（岸田）
     
    ※1つのPodは，複数のコンテナで構成することが可能です。各々固有の名前を持っており，その名前を使用することによって個別にイメージを変更したり，一度に全てのコンテナイメージを変更させることも可能です。
    `guestbook` のDeploymentにおけるコンテナ名は，`guestbook` です。
@@ -149,7 +151,7 @@ Kubernetesは，アプリケーションを新しいコンテナイメージに�
    ```
    
    >補足:  
-   > v2のコンテナイメージ適用が完全に終了した後に`$ kubectl rollout status xxx`を実行した場合は，`deployment "guestbook" successfully rolled out`とだけ表示されます。
+   >上記の出力はv2のコンテナイメージに置き換わっている間に出力されるものです。v2のコンテナイメージ適用が完全に終了した後に`$ kubectl rollout status xxx`を実行した場合は，`deployment "guestbook" successfully rolled out`とだけ表示されます。
 
 3. ブラウザ上でアプリケーションの動作を確認します。
 
@@ -173,16 +175,16 @@ Kubernetesは，アプリケーションを新しいコンテナイメージに�
     > - Public IP: `184.173.52.92`
     > - NodePort: `30282`
     > 
-    > したがって，ブラウザ上で `184.173.52.92:30282` を開くことでアプリケーション動作を確認します。
+    > したがって，ブラウザ上で `184.173.52.92:30282` にアクセスするとアプリケーションが開きます。
 
     guestbook アプリの "v2" が動作していることを確認してください。
-    ページタイトルの文字列が `Guestbook - v2` に変更されているはずです。
-
-    ブラウザ上の動作イメージは以下です。
+    下図のように，ページタイトルの文字列が `Guestbook - v2` に変更されているはずです。
     
     ![guestbook-v2 application in browser](images/guestbook-in-browser-v2.png)
 
 ## v1のコンテナイメージへのロールバック
+v2のコンテナイメージに置き換わりましたが、再度v1のイメージにロールバックさせます。
+
 1. 直前の状態(v1のコンテナイメージ)にロールバックします。
 
     ```bash
@@ -230,7 +232,7 @@ Kubernetesは，アプリケーションを新しいコンテナイメージに�
     ```
    
     >補足:  
-    > 完全にロールアウトが完了した後に`$ kubectl rollout status xxx`を実行した場合は，`deployment "guestbook" successfully rolled out`とだけ表示されます。
+    >先ほどと同様，完全にロールアウトが完了した後に`$ kubectl rollout status xxx`を実行すると，`deployment "guestbook" successfully rolled out`とだけ表示されます。
    
 5. 最終的に動作しているPod(v1のコンテナ群)を管理している `ReplicaSet` を確認します。
 
@@ -243,6 +245,7 @@ Kubernetesは，アプリケーションを新しいコンテナイメージに�
     guestbook-75786d799f   10        10        10      30m
     ```
     
+    READYが0の`ReplicaSet`と10の`ReplicaSet`の2つが表示されました。
     上記の例の場合は，
     `guestbook-75786d799f` がv1のコンテナイメージを指定しているグループのReplicaSetです。
     
@@ -269,8 +272,8 @@ Kubernetesは，アプリケーションを新しいコンテナイメージに�
     ```
 
     >補足:  
-    > Kubernetesには，様々なK8sリソースが存在します。Pod/ReplicaSet/Deployment/Service/etc. たくさんあります。
-    > Lab2の場合，Deploymentというリソースが，2種類のReplicaSet(v1コンテナ群を管理するものと，v2コンテナ群を管理するもの)のライフサイクル管理をしてくれていました。
+    > Kubernetesには，様々なK8sリソースが存在します。(Pod/ReplicaSet/Deployment/Service etc..)
+    > Lab2では，Deploymentというリソースが，2種類のReplicaSet(v1コンテナ群を管理するものと，v2コンテナ群を管理するもの)のライフサイクル管理をしてくれていました。そしてそのReplicaSetがguestbookコンテナの動くPodを管理しています。
 
 以上で「アプリケーションのスケーリング」および「アップデート & ロールバック」の操作は完了です。
 
