@@ -20,10 +20,10 @@ $ cd jpetstore-kubernetes
 
 | フォルダー | 説明 |
 | ---- | ----------- |
-|[**jpetstore**](https://github.com/kissyyy/jpetstore-kubernetes/jpetstore)| Javaでかかれたペットショップのアプリケーション |
-|[**mmssearch**](https://github.com/kissyyy/jpetstore-kubernetes/mmssearch)| GOで実装された画像認識機能付きチャットアプリ |
-|[**helm**](https://github.com/kissyyy/jpetstore-kubernetes/helm)| KubernetesにデプロイするためのHelm チャート |
-|[**pet-images**](https://github.com/kissyyy/jpetstore-kubernetes/pet-images)| チャットアプリの動作確認用の動物画像ファイル |
+|[**jpetstore**](https://github.com/kissyyy/jpetstore-kubernetes/tree/master/jpetstore)| Javaでかかれたペットショップのアプリケーション |
+|[**mmssearch**](https://github.com/kissyyy/jpetstore-kubernetes/tree/master/mmssearch)| GOで実装された画像認識機能付きチャットアプリ |
+|[**helm**](https://github.com/kissyyy/jpetstore-kubernetes/tree/master/helm)| KubernetesにデプロイするためのHelm チャート |
+|[**pet-images**](https://github.com/kissyyy/jpetstore-kubernetes/tree/master/pet-images)| チャットアプリの動作確認用の動物画像ファイル |
 
 ## 既存アプリケーションのコンテナ化
 Lab4では既に公開済みのPublic Imageを利用します。
@@ -145,4 +145,4 @@ jpetstoreweb-5f7c96bc8b   2         2         2         33s
    ![](images/petstore.png)
 
 以上でLab4は終了です。  
-最後のハンズオンは[Lab5](../Lab5/README.md)です。
+最後のハンズオンは[Lab5](../Lab5/)です。
