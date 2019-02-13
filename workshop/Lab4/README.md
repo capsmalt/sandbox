@@ -1,65 +1,73 @@
-# Lab4: JPetStore on IBM Cloud Kubernetes Service
+# Lab4: Helmチャートを使用したアプリケーションのデプロイ
 
-既存のJavaアプリをコンテナ化してKubernetesにデプロイします。
-このLabでは、Kubernetesのパッケージング技術の1つである Helm をしたデプロイの方法を学びます。
+このLabでは、Kubernetesのパッケージング技術の1つである [Helm](https://helm.sh/) を利用したデプロイの方法を学びます。
 
 1. レガシーなJava（J2EE）のWebアプリケーションであるJPetStoreをDockerコンテナ化（ハンズオンでは実施しません）
-2. [IBM Cloud Kubernetes Service](https://www.ibm.com/cloud/container-service) にデプロイ
+2. Helmを利用して [IBM Cloud Kubernetes Service](https://www.ibm.com/cloud/container-service) にデプロイ
 
-![](readme_images/architecture.png)
+![](images/jpet-architecture.png)
 
-## 事前準備
+## ソースコードの入手
 
-本ハンズオンの実施には以下が必要になります。
-Lab1~3をすでに完了している場合は追加の操作は不要です。
+Lab4,5に使用するリポジトリをクローンします:
 
-1. CLIのインストール
-If you do not have Docker or Kubernetes tooling installed, see [Setting up the IBM Cloud Developer Tools CLI](https://cloud.ibm.com/docs/cli/idt/setting_up_idt.html).
+    ```bash
+    git clone https://github.com/kissyyy/jpetstore-kubernetes
 
-2. Kubernetesクラスターの作成[IBM Cloud Kubernetes Service](http://www.ibm.com/cloud/container-service) のセットアップと and [provision a Standard **Paid** cluster](https://cloud.ibm.com/docs/containers/container_index.html#clusters) (it might take up to 15 minutes to provision, so be patient). A Free cluster will *not* work because this demo uses Ingress resources.
+    cd jpetstore-kubernetes
+    ```
 
-3. Follow the instructions in the **Access** tab of your cluster to gain access to your cluster using [**kubectl**](https://kubernetes.io/docs/reference/kubectl/overview/).
+#### フォルダーの構成
 
-### ソースコードの入手
-
-このリポジトリをクローンします:
-
-```bash
-git clone https://github.com/kissyyy/jpetstore-kubernetes
-cd jpetstore-kubernetes
-```
-
-#### ソースコードの構成
+クローンしたリポジトリは以下のファイルから構成されています。
 
 | フォルダー | 説明 |
 | ---- | ----------- |
-|[**jpetstore**](/jpetstore)| Traditional Java JPetStore application |
-|[**mmssearch**](/mmssearch)| New Golang microservice (which uses Watson to identify the content of an image) |
-|[**helm**](/helm)| Helm charts for templated Kubernetes deployments |
-|[**pet-images**](/pet-images)| Pet images (which can be used for the demo) |
+|[**jpetstore**](/jpetstore)| Javaでかかれたペットショップのアプリケーション |
+|[**mmssearch**](/mmssearch)| 新規にGOで開発したマイクロサービス。Watsonを使った画像認識の機能が実装されている |
+|[**helm**](/helm)| KubernetesにデプロイするためのHelm チャート |
+|[**pet-images**](/pet-images)| 動作確認用の動物画像ファイル |
+
+## 既存アプリケーションのコンテナ化
+
+Lab4では既に公開済みのPublic Imageを利用します。
+そのため以下の操作は実施する必要はありませんが興味のある方はぜひ試してみてください。
+
+（時間があったら書きます）
 
 ## アプリケーションのデプロイ
 
-Kubernetesにデプロイする方法として、2つの方法があります。
-There are two different ways to deploy the three micro-services to a Kubernetes cluster:
+### Helmを利用したデプロイ
 
-- Using [Helm](https://helm.sh/) to provide values for templated charts (recommended)
-- Or, updating yaml files with the right values and then running  `kubectl create`
+Helmは、Kubernetesのパッケージ・マネージャーです。 Helm チャートと呼ばれる定義ファイルを使用して、Kubernetes アプリケーションの定義やインストール、アップグレードを行うことができます。
 
-### オプション 1: Helmを利用してデプロイ
+#### Helmのセットアップ（これ必要か？要検証）
 
-1. Install [Helm](https://docs.helm.sh/using_helm/#installing-helm). (`brew install kubernetes-helm` on MacOS)
+Helm チャートを IBM Cloud Kubernetes Service で使用するために、クラスターに Helm インスタンスをインストールして初期化する必要があります。
 
-2. Find your **Ingress Subdomain** by running `ibmcloud cs cluster-get YOUR_CLUSTER_NAME` , it will look similar to "mycluster.us-south.containers.mybluemix.net".
+[Helm](https://docs.helm.sh/using_helm/#installing-helm)をインストールします。
 
-3. Open `../helm/modernpets/values.yaml` and make the following changes.
+クラスターのセキュリティーを維持するため、IBM Cloud kube-samples リポジトリーから以下の .yaml ファイルを適用することによって、Tiller のサービス・アカウントを kube-system 名前空間に作成し、tiller-deploy ポッドに対する Kubernetes RBAC クラスター役割バインディングを作成します。 注: kube-system 名前空間のサービス・アカウントとクラスター役割バインディングを使用して Tiller をインストールするには、cluster-admin 役割が必要です。
 
-    - Update `repository` and replace `<NAMESPACE>` with your Container Registry namespace.
-    - Update `hosts` and replace `<Ingress Subdomain>` with your Ingress Subdomain.
+```bash
+ kubectl apply -f https://raw.githubusercontent.com/IBM-Cloud/kube-samples/master/rbac/serviceaccount-tiller.yaml
+ ```
 
-4. Repeat the previous step and update `../helm/mmssearch/values.yaml` with the same changes.
+ 作成したサービス・アカウントを使用して、Helm を初期化し、tiller をインストールします。
 
-5. Next, install JPetStore and Visual Search using the helm yaml files you just created:
+ ```bash
+helm init --service-account tiller
+```
+
+クラスター内の tiller-deploy ポッドの「状況」が「実行中」になっていることを確認します。
+
+```bash
+kubectl get pods -n kube-system -l app=helm
+```
+
+#### Helmを利用したアプリのデプロイ
+
+Helm チャートを使用してJPetStore アプリをデプロイします。
 
     ```bash
     # Change into the helm directory
@@ -70,50 +78,52 @@ There are two different ways to deploy the three micro-services to a Kubernetes 
 
     # Create the JPetstore app
     helm install --name jpetstore ./modernpets
-
-    # Ceate the MMSSearch microservice
-    helm install --name mmssearch ./mmssearch
     ```
 
-### オプション 2: YAMLファイルを使用してデプロイ
+    出力
 
-yamlファイルを使用して宣言的にデプロイを実行します。
+    ```bash
+    NAME:   jpetstore-helm
+    LAST DEPLOYED: Wed Feb 13 15:14:08 2019
+    NAMESPACE: default
+    STATUS: DEPLOYED
 
-1. Edit **jpetstore/jpetstore.yaml** and **jpetstore/jpetstore-watson.yaml** and replace all instances of:
+    RESOURCES:
+    ==> v1/Service
+    NAME  CLUSTER-IP     EXTERNAL-IP  PORT(S)       AGE
+    web   172.21.60.105  <nodes>      80:30327/TCP  1s
+    db    172.21.53.155  <none>       3306/TCP      1s
 
-  - `<CLUSTER DOMAIN>` with your Ingress Subdomain (`ibmcloud cs cluster-get CLUSTER_NAME`)
-  - `<REGISTRY NAMESPACE>` with your Image registry URL. For example:`registry.ng.bluemix.net/mynamespace`
+    ==> v1beta2/Deployment
+    NAME                                    KIND
+    jpetstore-helm-modernpets-jpetstoreweb  Deployment.v1beta2.apps
 
-2. `kubectl create -f jpetstore.yaml`  - This creates the JPetstore app and database microservices
-3. `kubectl create -f jpetstore-watson.yaml`  - This creates the MMSSearch microservice
+    ==> v1beta1/Deployment
+    NAME                                   DESIRED  CURRENT  UP-TO-DATE  AVAILABLE  AGE
+    jpetstore-helm-modernpets-jpetstoredb  1        1        1           0          1s
+    ```
+
+### 補足: YAMLファイルを使用したデプロイ
+
+Lab3までと同様、yamlファイルを使用してデプロイすることも可能です。
+yamlファイルでデプロイをする場合は以下のようになります。
+
+```bash
+kubectl apply -f jpetstore.yaml
+```
+
+JpetStoreのWebコンテナとDBコンテナがデプロイされます。
+
+```bash
+kubectl get all
+```
 
 ## 動作確認
 
-You are now ready to use the UI to shop for a pet or query the store by sending it a picture of what you're looking at:
+ブラウザ上で以下のURLからjpetアプリの動作をテストします:
+`<クラスターのPublic IP>:<ポート>`にアクセスしてください。
 
-1. Access the java jpetstore application web UI for JPetstore at `http://jpetstore.<Ingress Subdomain>/shop/index.do`
+   ![](images/petstore.png)
 
-   ![](readme_images/petstore.png)
-
-## アプリの変更
-
-mmssearch.go or index.htmlを変更し再度docker buildする。
-ビルドはibmclodu cr buildで実行
-
-## Troubleshooting
-
-### The toolchain complains about "incompatible versions" for helm
-
-The DEPLOY log shows:
-```
-Error: UPGRADE FAILED: incompatible versions client[v2.8.1] server[v2.4.2]
-```
-
-It means you have already `helm` installed in your cluster and this version is not compatible with the one from the toolchain.
-
-Two options:
-1. Before running the toolchain again, update `helm` to the version used by the toolchain on your local machine then issue a `helm init --upgrade` against the cluster.
-2. Edit `bluemix/pipeline-DEPLOY.sh` at line 60 in your repository and replace `helm init` with `helm init --upgrade`.
-
-Then re-run the DEPLOY job.
-
+以上でLab4は終了です。
+最後のハンズオンは[Lab5](../Lab5/README.md)です。
