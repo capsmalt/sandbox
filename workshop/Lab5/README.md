@@ -15,13 +15,16 @@ Lab4ではWebとDBから構成されるレガシーなJavaアプリケーショ�
 ## Visual Recognitionサービスの作成
 
 ブラウザで [IBM Cloudのカタログページ](https://cloud.ibm.com/catalog/) にアクセスし、Visual Recognitionサービスを作成します。
-サービスを作成する地域は「米国南部(Dallas)」、サービスプランは「ライト（Lite）」を選択し、「作成」をクリックします。
 
-（キャプチャ）
+![](../images/catalog.png)
 
-サービスが作成されると画面が遷移し、サービスの詳細画面が表示されます。このページで、API呼び出しをするために必要な**APIキー**が取得できます。このAPIキーはこの後使うのですぐに参照できるようにしておいてください。
+サービスを作成する地域は「ダラス(Dallas)」、サービスプランは「ライト（Lite）」を選択し、「作成」をクリックします。
 
-（キャプチャ）
+![](../images/createvr.png)
+
+サービスが作成されると画面が遷移し、サービスの詳細画面が表示されます。「管理」画面に遷移すると、API呼び出しをするために必要な**APIキー**が取得できます。このAPIキーはこの後使うのですぐに参照できるようにしておいてください。
+
+![](../images/vr_apikey.png)
 
 ## Kubernetes Secret の作成
 
@@ -42,7 +45,7 @@ Kubernetesで設定ファイルを管理する方法として`Configmap` と `Se
 
   （画像差し替え予定）
 
-   ![](images/watson_credentials.png)
+![](../images/watson_credentials.png)
 
 KuberenetesクラスターのSecretを生成します。
 
@@ -110,18 +113,6 @@ ibmcloud ks cluster-service-bind mycluster default visual-recognition-xx
 なおこの場合`jpetstore-watson-nodeport.yaml`を変更する必要あります。
 
 ```yaml
-kind: Deployment
-apiVersion: extensions/v1beta1
-metadata:
-  name: mmssearch
-spec:
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        app: mmssearch
-      annotations:
-        sidecar.istio.io/inject: "true"
     spec:
       containers:
       - name: mmssearch
