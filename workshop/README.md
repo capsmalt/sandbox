@@ -1,31 +1,24 @@
-# IKS ハンズオン
+# Kubernetes ハンズオン
 IKS (IBM Cloud Kubernetes Service) を使用して以下のことを学びます。
 
-1. IKSの使用方法
-1. Kubenretes CLIの操作
-1. Kubernetes リソースの操作
-1. Kubernetes マニュフェストの操作
-1. Helm Chartを使用したアプリケーションデプロイ
-1. クラウドサービスとの連携
+- IKSの使用方法
+- Kubenretes CLIの基本操作
+- Kubernetes リソースの操作
+- Kubernetes マニュフェストの操作
+- Helm Chartを使用したアプリケーションデプロイ
+- クラウドサービスなどの外部連携
 
 # ハンズオン構成 
-本ハンズオンは，xxつのLabから成ります。
-Lab1-3では，Kubernetesの基礎を学びます。具体的には，Kubernetesの泥臭い作業(kubectl run xxx)やマニュフェストファイル(xxx.yaml)を使用した宣言的な定義などを経験します。
-Lab4以降では，Kubernetesのパッケージング技術の1つである **Helm** を使用した一括デプロイや，PaaSサービスの1つである IBM Cloudの画像認識サービス(Visual Recognition)と連携させます。
+Lab0-6の7つのハンズオンを準備しています。
 
-1. [Lab 1](Lab1): xxx (kubectl run 操作)
-1. [Lab 2](Lab2): xxx (ロールバックなどのk8s機能操作)
-1. [Lab 3](Lab3): xxx (yaml編集でマニュフェストファイルによるデプロイ)
-1. Lab4: xxx (JPetstoreアプリをHelmデプロイ，Helm編集，再デプロイ)
-1. Lab5: xxx (JPetstoreアプリの編集。Visual RecognitionのAPI KeyをGoアプリで使用するjsonに書き込み)
-1. Lab6: xxx (オプション。Opentoolchainで自動デプロイ)
-1. xxxx
+Lab1-6は全て独立した内容となっていますので，お好きな順番で実施頂けます。ただし，基本的にはLab1から実施頂くことをオススメします。
 
+1. [Lab 0](Lab0): セットアップ (IKSクラスター接続確認)
+1. [Lab 1](Lab1): K8sクラスターへのアプリケーションデプロイ (kubectl CLI の基本操作)
+1. [Lab 2](Lab2): スケーリング，アップデート&ロールバック (K8s基本機能)
+1. [Lab 3](Lab3): マニフェストファイルの使用とDB連携 (yaml操作とDBコンテナ連携)
+1. [Lab 4](Lab4): Helmチャートを使用したアプリケーションデプロイ (K8sパッケージング技術の使用)
+1. [Lab 5](Lab5): Watson APIとの連携 (コンテナとIBM Cloudサービスの連携)
+1. [Lab 6](Lab6): Helm Chart (K8sパッケージング技術を体験)
 
-# 前提
-
-|名称|タイプ|備考|
-|:--|:--|:--|
-|IKS|K8sサービス|無料のフリークラスターを作成できること|
-|GitHub|ソースコードリポジトリ|Publicアクセス可能なリポジトリ|
-|エディタ|IDE|任意のIDE (VS Code, Atom, etd.)|
+Lab1-3では，Kubernetesの基礎を学びます。具体的には，Kubernetesの泥臭い作業(kubectl run xxx)やマニュフェストファイル(xxx.yaml)を使用した宣言的な定義などを経験します。Lab4以降では，Kubernetesのパッケージング技術の1つである **Helm** を使用した一括デプロイや，PaaSサービスの1つである IBM Cloudの画像認識サービス(Visual Recognition)と連携させるなど応用編を体験します。
