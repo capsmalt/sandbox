@@ -2,8 +2,7 @@
 
 Lab4では、Kubernetesのパッケージング技術の1つである [Helm](https://helm.sh/) を利用したデプロイの方法を学びます。
 
-1. レガシーなJava（J2EE）のWebアプリケーションであるJPetStoreをDockerコンテナ化（ハンズオンでは実施しません）
-2. Helmを利用して [IBM Cloud Kubernetes Service](https://www.ibm.com/cloud/container-service) にデプロイ
+下図のように、既存のJavaアプリケーションをコンテナ化し、Helmを利用して [IBM Cloud Kubernetes Service](https://www.ibm.com/cloud/container-service) にデプロイすることがゴールです。
 
 ![](images/jpet-architecture.png)
 
@@ -25,18 +24,72 @@ $ cd jpetstore-kubernetes
 |[**helm**](https://github.com/kissyyy/jpetstore-kubernetes/tree/master/helm)| KubernetesにデプロイするためのHelm チャート |
 |[**pet-images**](https://github.com/kissyyy/jpetstore-kubernetes/tree/master/pet-images)| チャットアプリの動作確認用の動物画像ファイル |
 
-## 既存アプリケーションのコンテナ化
+## 既存アプリケーションのコンテナ化(ハンズオンでは実施しません)
 Lab4では既に公開済みのPublic Imageを利用します。
-そのため以下の操作は実施する必要はありませんが興味のある方はぜひ試してみてください。
+そのため以下の操作は実施する必要はありませんが興味のある方はぜひ試してみてください。なお、この章を実行するためには`docker`コマンドが必要です。
 
-（時間があったら書きます）
+`JpetStore`はレガシーなJava（J2EE）で作られたペットショップのWebアプリケーションです。  
+これをコンテナ化することでアプリケーションをモダナイゼーションします。  
+
+ビルドしたコンテナイメージの置き場としてIBM Cloud Container Registryを使用します。  
+もちろんDockerHubやご自身のプライベートレジストリーを使用することもできます。その場合は`<MYREGISTRY>`部分を適宜置き換えてください。
+
+1. レジストリーの **Namespace** を設定します。
+
+    以下のコマンドを実行すると`Namespace`の一覧が表示されます。
+
+    ```bash
+    $ ibmcloud cr namespaces
+    ```
+
+    既存の`Namespace`がなく、新規に作成する場合は以下のコマンドを実行してください。
+    
+    ```bash
+    $ ibmcloud cr namespace-add <NAMESPACE>
+    ```
+
+2. **Container Registry** (e.g. registry.ng.bluemix.net) の情報を確認します。
+
+```bash
+Container Registry                      registry.ng.bluemix.net
+Container Registry API エンドポイント   https://registry.ng.bluemix.net/api
+IBM Cloud API エンドポイント            https://cloud.ibm.com
+IBM Cloud アカウントの詳細              XXXX Account (xxxxxxxxxxxxxxxxxxxxx)
+IBM Cloud 組織の詳細                     ()
+```
+
+3. Make sure that the steps above worked by running `echo <MYREGISTRY>/<MYNAMESPACE>` . You should see output similar to `registry.ng.bluemix.net/mynamespace`
+
+4. **jpetstoreweb** イメージをビルドし、レジストリーにプッシュします。 
+
+```bash
+$ cd jpetstore
+$ docker build . -t <MYREGISTRY>/<MYNAMESPACE>/jpetstoreweb
+$ docker push <MYREGISTRY>/<MYNAMESPACE>/jpetstoreweb
+```
+
+   >`Unauthorized ` と表示された場合は`ibmcloud cr login` を実行してIBM Cloudにログインしてください。
+
+5. 同様に、**jpetstoredb** イメージをビルドします。
+
+```bash
+$ cd db
+$ docker build . -t <MYREGISTRY>/<MYNAMESPACE>/jpetstoredb
+$ docker push <MYREGISTRY>/<MYNAMESPACE>/jpetstoredb
+```
+
+10. レジストリーへのプッシュが完了したことを確認するために、IBM Cloud Container Registryに保存されたイメージの一覧を表示します。 
+
+```bash
+$ ibmcloud cr images --restrict $MYNAMESPACE
+```
 
 ## アプリケーションのデプロイ
 
 ### Helmを利用したデプロイ
 Helmは、Kubernetesのパッケージ・マネージャーです。 Helm チャートと呼ばれる定義ファイルを使用して、Kubernetes アプリケーションの定義やインストール、アップグレードを行うことができます。
 
-JpetStoreをデプロイするためのHelmチャートは以下のようなフォルダ構造になっています。
+JpetStoreをデプロイするためのHelmチャートは`helm/modernpets`ディレクトリに入っています。
 
 ```bash
 modernpets
