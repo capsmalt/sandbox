@@ -243,12 +243,13 @@ $ cd guestbook/v1
 
 以上の操作で，マニフェストファイル(yaml)で`deployment(guestbook-v1)`と`service(guestbook)`をKubernetes上に展開し，さらに外部からアクセス可能なguestbookアプリケーションを動作させることができました。またyamlを編集することで，Kubernetesが`desired state (宣言的に指定した状態)`を維持させるように動作することを確認できました。
 
+> 補足:  
 > Kubernetesが`desired state`を維持するように動作していることを別の角度から確認することもできます。
 >
-> Deployment作成時に使用したマニフェストファイルでは，常に3つのアクティブなPodが動作するよう動くよう設定しています。もし障害が起こってPodが落ちてしまったときに，どのような挙動をするのか試してみましょう。  
+> Deployment作成時に使用したマニフェストファイルでは，常に3つのアクティブなPodが動作するよう動くよう設定していますが，もし障害が起こってPodが落ちてしまったときに，どのような挙動をするのかみてみましょう。  
 >  
 > 稼働中のPodを意図的に削除することで擬似的に障害を生じさせます。  
-> 稼働中のPod名のうち1つを選択し(上記の例では`guestbook-v1-7fc76dc46-dcjwg`)，これを引数として以下のコマンドを実行します。
+> 稼働中のPod名のうち1つを選択し(今回の例では`guestbook-v1-7fc76dc46-dcjwg`)，これを引数として以下のコマンドを実行します。
 >
 > ```bash
 > $ kubectl delete pod guestbook-v1-7fc76dc46-dcjwg
@@ -261,8 +262,8 @@ $ cd guestbook/v1
 > $ kubectl get pods -l app=guestbook
 > NAME                           READY   STATUS    RESTARTS   AGE
 > guestbook-v1-7fc76dc46-mdzbk   1/1     Running   0          5s
-> guestbook-v1-7fc76dc46-f7tzx   1/1     Running   0          18m
-> guestbook-v1-7fc76dc46-zgckk   1/1     Running   0          18m
+> guestbook-v1-7fc76dc46-f7tzx   1/1     Running   0          31m
+> guestbook-v1-7fc76dc46-zgckk   1/1     Running   0          31m
 > ```
 >
 > `AGE`が他の2つに比べて新しいPodが表示されるはずです。これは，Podの削除後，新たに作られたものです。
