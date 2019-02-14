@@ -1,40 +1,42 @@
 # Lab 3) マニフェストファイルの使用とRedisデータベースコンテナとの連携
-Lab 1，2で使用してきた`guestbook`アプリケーションと同じものを使用します。
-これまでとの違いは，`kubectl run`コマンドなどで直接Podを作成・開始するのではなく，マニフェストファイル(構成ファイル)を使用してアプリケーションのデプロイを行う点です。
+Lab3では，マニフェストファイルを使用して宣言的にアプリケーションをデプロイする方法を学びます。  
+また，複数のコンテナを連携させて利用する方法も学びます。
 
-Kubernetesのコントローラーがマニフェストファイルの記述内容のステート(状態)に寄せていく「**宣言的** かつ，よりきめ細やかなりソース管理」をシンプルに実現できます。これがKubernetesを利用する最大の理由と言っても過言ではありません。
+使用するアプリケーションは，Lab 1，2で使用してきた`guestbook`アプリケーションと同じものです。
+Lab1，2では，`kubectl run`コマンドなど逐次コマンドを入力し`Pod`を作成・開始してきましたが，Lab3ではマニフェストファイル(構成ファイル)を使用してアプリケーションのデプロイを行います。  
+
+マニフェストファイルを使用することで，Kubernetesのコントローラーはファイルに記述されている`desired state`(宣言的に指定した状態)を満たすよう動きます。
+つまり，「**宣言的** かつ，よりきめ細やかなりソース管理」をシンプルに実現することが可能になります。
+これがKubernetesを利用する最大の理由と言っても過言ではありません。
 
 Lab 3では大きく以下の2つを体験します。
 
 - **1. マニフェストファイルを使用したアプリケーションのデプロイとスケーリング**
-- **2. Redisコンテナを追加起動してguestbookアプリケーションと連携**
+- **2. Redisコンテナを追加し`guestbook`アプリケーションと連携**
 
 ## 0. 事前準備 (リポジトリのクローン)
-まずはアプリケーションをGitHubからクローンして，該当ディレクトリに移動してください。
-複数バージョンのguestbookアプリケーションをKubernetes上にデプロイするためのマニフェストファイル(yaml)を配置しています。
+まずはソースコードをGitHubからクローンして，該当ディレクトリに移動してください。
+複数バージョンの`guestbook`アプリケーションをKubernetes上にデプロイするためのマニフェストファイル(.yaml)を配置しています。
 
 ```bash
-マニフェストファイル群が用意されているリポジトリのクローンと，ディレクトリ移動
+マニフェストファイルが用意されているリポジトリのクローンと，ディレクトリ移動
 
 $ git clone https://github.com/capsmalt/guestbook.git
 $ cd guestbook/v1
 ```
 
 ## 1. マニフェストファイルを使用したアプリケーションのスケーリング
-ここで実施する作業自体は3ステップです。
+ここでは以下の3つの操作を実施します。
 
-- `guestbook-deployment.yaml` を使って `guestbook-v1`という名前のdeploymentを作成する (replicas=3 指定済)
-- `guestbook-deployment.yaml` を編集して `3台構成`から`5台構成`にスケーリングさせる
-- `guestbook-service.yaml` を使って `guestbook` という名前のserviceを作成する
+- `guestbook-deployment.yaml` を使って `guestbook-v1`という名前のdeploymentを作成しアプリケーションをデプロイする (replicas=3 指定済)
+- `guestbook-deployment.yaml` を編集して **3台**構成から**5台**構成にスケーリングさせる
+- `guestbook-service.yaml` を使って `guestbook` という名前のserviceを作成し外部からアクセス可能な状態にする
 
+上記の操作はコマンドを数回実行するだけで終わりますが，この章では，yamlファイルの中身に目を通して，マニフェストファイルがどのようなものか理解してください。
 
-上記自体は，コマンドを数回叩けば終わります。
-この章では，yamlファイルの中身について目を通して，マニフェストファイルがどんなものか理解してください。
-
-### まずは，guestbookアプリケーションのdeploymentの構成を見てみましょう。
+### まずは，`guestbook`アプリケーションの`deployment`の構成を見てみましょう。
 
 1. **guestbook/v1/guestbook-deployment.yaml**  を任意のエディタで開きます。  
-
 
   ```yaml
   apiVersion: apps/v1
@@ -63,15 +65,18 @@ $ cd guestbook/v1
             containerPort: 3000
   ```
 
-  上記の構成ファイルは，`guestbook-v1`という名前のdeploymentオブジェクトを作成します。同時に`ibmcom/guestbook:v1`イメージを動作させる1つのコンテナを含むPodを作成します。この構成ファイルによって，`replicas: 3` と指定されるため，Kubernetesは少なくとも3つのアクティブなPodが動作し続けるように試みます。
+  上記の構成ファイルでは，`guestbook-v1`という名前の`deployment`オブジェクトを作成しています。  
+  Deployment定義の場合は `spec: `にレプリカ数や，使用するコンテナイメージ，ポートなどを指定します。
+  今回の例では`deployment`の構成要素として`ibmcom/guestbook:v1`というコンテナイメージが指定され，これが`Pod`として生成されます。
+  また，`Replicaset`として`Pod`の数が3つに指定(`replicas: 3`)されているため，Kubernetesは常に3つのアクティブな`Pod`が動作するよう動きます。
 
   >補足:  
-  > Kubernetesオブジェクトを作成する際には，yaml内で`apiVersion`や`kind`，`metadata`，`name`，`labels`，`namespace`などを指定できます。今回のようにdeploymentオブジェクトを生成する際は`kind: Deployment`のように指定します。他にも`Service`や`Pod`，`ConfigMap`，その他Kubernetesリソースの種類を指定することでマニフェストファイルから各種オブジェクトを作成できます。Deployment定義の場合は，`spec: `にレプリカ数や，使用するコンテナイメージ，ポートなどを指定しています。
+  > Kubernetesオブジェクトを作成する際には，yamlファイル内で`apiVersion`や`kind`，`metadata`，`name`，`labels`，`namespace`などを指定します。今回のようにdeploymentオブジェクトを生成する際は`kind: Deployment`のように指定します。他にも`Service`や`Pod`，`ConfigMap`，その他Kubernetesリソースの種類を指定することでマニフェストファイルから各種オブジェクトを作成できます。
 
+2. `guestbook`の`deployment`オブジェクトの作成します。  
 
-2. guestbookのdeploymentオブジェクトの作成します。  
-
-  マニフェストファイルを使用してdeploymentをします。
+  上記で確認したマニフェストファイルを使用して`deployment`を作成します。  
+  マニフェストファイルを使用する場合は`-f`オプションを付与してファイル名を指定します。
 
   実行例:
 
@@ -81,7 +86,7 @@ $ cd guestbook/v1
   ```
 
 3. ラベル(`label`)が `app=guestbook` であるPod一覧を表示します。  
-  生成済の全てのPodの中から，labelが "app" で，その値が "guestbook" であるPodを一覧表示することが可能です。
+  生成済の全てのPodの中から，labelが "app" で，その値が "guestbook" であるPodを一覧表示させてみます。
   labelは，マニフェストファイル(yaml)内の `spec.template.metadata.labels` という項目の値を指します。
 
   実行例:
@@ -94,21 +99,50 @@ $ cd guestbook/v1
   guestbook-v1-7fc76dc46-zgckk   1/1     Running   0          18m
   ```
 
+  >補足1:
+  >先ほど確認したマニフェストファイルには`labels: `表記が2ヶ所にありますが，それぞれ`deployment`を区別するためのlabelと`pod`を区別するためのlabelとなっています。今回は`kubectl get **pods**`コマンドを実行しているため`pod`のlabelが`app=guestbook`となっているものが返ってきます。  
+
+  Deployment作成時に使用したマニフェストファイルでは，常に3つのアクティブな`Pod`が動作するよう動くよう設定しています。もし障害が起こって`Pod`が落ちてしまったときに，どのような挙動をするのか試してみましょう。  
+  
+  稼働中のPodを意図的に削除します。  
+  上で確認したPod名のうち1つを選択します(上記例では`guestbook-v1-7fc76dc46-dcjwg`)。これを引数として以下のコマンドを実行します。
+
+  ```bash
+  $ kubectl delete pod guestbook-v1-7fc76dc46-dcjwg
+  pod "guestbook-v1-7fc76dc46-dcjwg" deleted
+  ```
+
+  再度Podの一覧を表示してみます。
+
+  ```bash
+  $ kubectl get pods -l app=guestbook
+  NAME                           READY   STATUS    RESTARTS   AGE
+  guestbook-v1-7fc76dc46-mdzbk   1/1     Running   0          5s
+  guestbook-v1-7fc76dc46-f7tzx   1/1     Running   0          18m
+  guestbook-v1-7fc76dc46-zgckk   1/1     Running   0          18m
+  ```
+
+  `AGE`が他の2つに比べて新しいPodがあるはずです。これは，Podの削除後，新たに作られたものです。
+  このようにKubernetesは，常にクラスターの状態を監視し，Deploymentで定義された`desired state`になっているかをチェックしています。そして，状態の差分が見つかると`desired state`を満たすよう動きます。
+  今回の場合はPodを1つ削除したことにより`desired state`である`replicas=3`が満たせなくなったため，すぐに新規にPodを1つ生成したというわけです。
+
 ### マニフェストファイルのレプリカ数を編集してPodをスケーリングさせてみましょう。
 
-4. マニフェストファイルを変更してみましょう。
+4. マニフェストファイルを変更してPodをスケーリングさせてみましょう。
 
   **guestbook/v1/guestbook-deployment.yaml** を任意のエディタで開いて `spec.replicas` の値を `replicas: 5` に変更します。
 
   ```yaml
+  ...
   spec:
     replicas: 5
     selector:
       matchLabels:
         app: guestbook
+  ...
   ```
 
-5. 変更を反映させます。
+5. 変更内容をクラスターに反映させます。
 
   実行例:
 
@@ -117,6 +151,7 @@ $ cd guestbook/v1
   Warning: kubectl apply should be used on resource created by either kubectl create --save-config or kubectl apply
   deployment.apps/guestbook-v1 configured
   ```
+
 6. 再度，Pod一覧を表示します。
 
   実行例:
@@ -131,20 +166,22 @@ $ cd guestbook/v1
   guestbook-v1-7fc76dc46-zgckk   1/1     Running   0          26m
   ```
 
+  Podの数が5つに増えていることが確認できます。一番右側の`AGE`列を見るとが2つだけ新しくなっていますね。  
+
   >補足1:  
-  > マニフェストファイルを使用してdeploymentオブジェクトを生成することができました。今回はレプリカ数を増加させる変更を行いましたが，マニフェストファイル自体をバージョン管理することで，ある時点での状態をいつでも再現できることが分かるかと思います。Kubernetesでは基本的には全てのK8sリソースをマニフェストファイルを使用することで管理できます。一方で，各K8sリソースタイプごとに管理していくことの複雑さや手間の問題も指摘されています。この問題の解決策としてHelmやKustomize，Kssonetなど様々なツールを活用している事例もありますので，興味のある方はぜひ調査してみてください。
-  > 
+  > Kubernetesでは，基本的に全てのKubernetesリソースはマニフェストファイルを使用して管理できます。したがって，マニフェストファイルをバージョン管理すると，ある時点での状態をいつでも再現できるようになります。しかし一方で，各Kubernetesリソースタイプごとに管理していくことの複雑さや手間の問題も指摘されています。この問題の解決策としてHelmやKustomize，Kssonetなど様々なツールを活用している事例もありますので，興味のある方はぜひ調査してみてください。
+  
   >補足2:  
   > `kubectl edit` で直接編集することもできます。
   > ```bash
   > $ kubectl edit deployment guestbook-v1
   > 
   > "replicas: 3" のように変更しても良いです。
-  > 未編集の場合は，":q"で終了。
+  > 未編集の場合は，":q"で終了します。
   > 変更を加えた場合は，":wq"で保存するか，":q!"で変更をキャンセルします。
   > ```
   > 変更している場合は， `$ kubectl get pods -l app=guestbook` で確認してみましょう。
-  > K8sが状態変更を適用させるべく，Podのインスタンスを増減させている様子が見れるはずです。
+  > Kubernetesが状態変更を適用させるべく，Podのインスタンスを増減させている様子が見れるはずです。
   > 
   > 実行例:
   > ```bash
@@ -187,7 +224,9 @@ $ cd guestbook/v1
     type: NodePort
   ```
 
-上記の構成では，`guestbook`という名前のserviceオブジェクトを作成します。Serviceはアプリケーションに対するトラフィックのためのネットワークパスを作成する際に使われます。今回はクラスター上の`3000番ポート`からのルートをアプリケーションの `http-serverポート` に指定します。
+上記の構成では，`guestbook`という名前の`service`オブジェクトを作成します。`Service`はアプリケーションに対するトラフィック，すなわちクラスター内の別の`Pod`やクラスター外部からくるのトラフィックのためのネットワークパスを作成する際に使われます。今回はクラスター上の`3000番ポート`からのルートをアプリケーションの `http-serverポート` に指定しています。
+
+> さらに上記では`type: NodePort`とすることで外部からアクセスが可能になるよう設定しています。
 
 8. `guestbook-v1`deploymentを作成した時と同じコマンドを使って，`guestbook-service`serviceを作成しましょう。
 
@@ -226,27 +265,28 @@ $ cd guestbook/v1
     
     ![guestbook-v1-lab3 application in browser](images/guestbook-in-browser-v1-lab3.png)
 
-以上の操作で，マニフェストファイル(yaml)で`deployment(guestbook-v1)`と`service(guestbook)`をKubernetes上に展開し，外部からアクセス可能なguestbookアプリケーションを動作させることができました。またyamlを編集することで，K8sが`desired state (宣言的に指定した状態)`を維持させるように動作することを確認できました。
+以上の操作で，マニフェストファイル(yaml)で`deployment(guestbook-v1)`と`service(guestbook)`をKubernetes上に展開し，さらに外部からアクセス可能なguestbookアプリケーションを動作させることができました。またyamlを編集することで，Kubernetesが`desired state (宣言的に指定した状態)`を維持させるように動作することを確認できました。
 
+## 2. Redisコンテナを追加してguestbookアプリケーションと連携
 
-## 2. Redisコンテナを追加起動してguestbookアプリケーションと連携
+先ほど作成した`guestbook`アプリケーションは，エントリを登録するとメモリ上でログを保持するようになっています。
+インスタンスが1つしか稼働していなければこのままでも特に問題ありませんが、複数のインスタンスにスケールすると不具合が生じる可能性があります。それぞれのインスタンスは自分自身のメモリにのみログを保持するため，ユーザーごとにアクセスするインスタンスが異なると，異なる結果が返ってきてしまうからです。
+また，メモリ上でログを保持するということは，インスタンスが何かの障害で落ちてしまうとメモリに書かれていたデータが全て消えてしまうという危険性もはらんでいます。
 
-`guestbook/v1/guestbook`配下のguestbookアプリケーションのソースコードを見ると，多様なデータストアをサポートしていることがわかります。
-デフォルトではメモリ上でguestbookエントリのログを保持する構成になっています。これはテスト目的であれば問題ない構成ですが，アプリケーションをスケールさせるような実働環境では上手く機能しない場合が多いかと思います。
-
-この問題を解決するために，アプリケーションの全インスタンス間で同じデータストアを共有できる必要があります。今回はRedisデータベースをK8sクラスターにデプロイして使用します。Redisインスタンスはguestbookと似たような構成で定義します。
+この問題を解決するためには，データを永続化するためのデータストアを用意し，アプリケーションの全インスタンス間で共有する必要があります。  
+今回はRedisデータベースをKubernetesクラスターにデプロイして利用します。  
+Redisインスタンスはguestbookと似たような構成で定義します。
 
 目指す構成イメージは以下です。
 
 ![guestbook-redis-master-persistance](images/Master.png)
 
+ここでは以下の4つの作業を実施します。
 
-ここで実施する作業自体は4ステップです。
-
-- `redis-master-deployment.yaml` を使って `redis-master`という名前のdeploymentを作成する
-- `redis-master-service.yaml` を使って `redis-master`という名前のserviceを作成する
-- 複数のguestbookアプリケーションが同一のRedisデータベースを使うことで永続化できることを確認する
-- `redis-slave` という名前のRedisデータベースを追加して，読み/書きの役割を複数のRedisで使い分けるように構成する
+- `redis-master-deployment.yaml` を使って `redis-master`という名前のdeploymentを作成しアプリケーションをデプロイする
+- `redis-master-service.yaml` を使って `redis-master`という名前のserviceを作成し他のPodからアクセス可能な状態にする
+- 複数のguestbookアプリケーションが同一のRedisデータベースに接続することでデータを永続化できることを確認する
+- `redis-slave` という名前のRedisデータベースを追加して，読み/書きの役割を複数のRedis間で使い分けられるように構成する
 
 ### Redis Masterデータベースのdeploymentを作成しましょう。
 
@@ -282,7 +322,8 @@ $ cd guestbook/v1
             containerPort: 6379
   ```
 
-  このyamlは，'redis-master' という名前のDeploymentでRedisデータベースを作成します。シングルインスタンスとして作成するので，レプリカ数を1にセットします。guestbookアプリケーションはRedisに接続しデータを永続化します。コンテナイメージは，'redis:2.8.23' を使用し，デフォルトのRedisポート番号である6379番で公開します。
+  このyamlは，'redis-master' という名前のDeploymentオブジェクトを作成し，Redisデータベースを生成しています。まずはシングルインスタンスで作成したいので，レプリカ数は1に設定しています。
+  コンテナイメージは，'redis:2.8.23' を使用し，デフォルトのRedisポート番号である6379番で公開するよう設定しています。
 
 2. Redis MasterデータベースのDeploymentを作成します。
 
@@ -303,11 +344,12 @@ $ cd guestbook/v1
   redis-master-5d8b66464f-qjjfn   1/1     Running   0          32s
   ```
 
-4. スタンドアローン動作するRedis Masterデータベースをテストします。
+4. デプロイしたRedis Masterデータベースが正しく動作するかテストしてみましょう。
 
-  3.で確認したPod名(上記例では`redis-master-5d8b66464f-qjjfn`)を引数に指定してコマンド実行しコンテナ内に入って操作します。
+  guestbookアプリケーションに接続する前に，Redisデータベース自体が正常に動作するか確認します。
+  3.で確認したPod名(上記例では`redis-master-5d8b66464f-qjjfn`)を引数に指定してコマンド実行し，コンテナ内に入って操作します。
 
-  実行例:   
+  実行例:  
   
   ```bash
   $ kubectl exec -it redis-master-5d8b66464f-qjjfn redis-cli
@@ -316,9 +358,9 @@ $ cd guestbook/v1
   127.0.0.1:6379> exit
   ```
   >補足:  
-  > `kubectl exec -it POD(正確には1つのコンテナ) COMMAND`コマンドは指定されたコンテナ内でプロセスを動作させる際に使用できます。
-  > 今回は，`redis-master-5d8b66464f-qjjfn`というPODのコンテナ内で`redis-cli`コマンドを実行しました。さらにコンテナ内でコマンド実行することでRedisデータベースが正常動作しているかを確認しています。
-  > 今回の例では，正常なら`ping`に対して`PONG`とレスポンスを返してくれる仕組みを使って確認しています。
+  > `kubectl exec -it POD(正確には1つのコンテナ) COMMAND`コマンドは指定したコンテナ内でプロセスを動作させる際に使用します。
+  > 今回は，`redis-master-5d8b66464f-qjjfn`というPODのコンテナ内で`redis-cli`コマンドを実行しました。
+  > 正常なら`ping`に対して`PONG`とレスポンスを返してくれる仕組みを使って確認をとっています。
 
 ### guestbookアプリケーションからRedis Masterデータベースに接続できるようにserviceを公開しましょう。
 
@@ -343,8 +385,8 @@ $ cd guestbook/v1
       role: master
   ```
 
-  このyamlは，`redis-master`という名前のserviceを作成し，`6379番ポート`で外部公開します。さらに，`app=redis`と`role=master`のラベルが指定されたPodをターゲットにルーティングするように構成します。
-
+  このyamlは，`redis-master`という名前のserviceを作成し，`6379番ポート`で外部公開します。
+  `selectore`のところで，`app=redis`と`role=master`のラベルが指定されたPodをターゲットにルーティングするように構成しています。
 
 6. Redis Masterデータベースを外部公開するServiceを作成します。
 
@@ -398,39 +440,43 @@ $ cd guestbook/v1
 
 ### 複数のguestbookアプリケーションが同一のRedisデータベースを使うことで永続化できることを確認しましょう
 
-9. もう一つブラウザを立上げてguestbookアプリの動作させてテストします。
+9. もう一つブラウザを立ち上げてguestbookアプリを開き，動作確認します。
 
-  複数のブラウザ同じguestbookアプリケーションを動作させる必要があります。
+  複数のブラウザで同じguestbookアプリケーションを動作させる必要があります。
   例えば以下のいずれかの方法で試してみましょう。
   
   - 通常ブラウザ と シークレットウィンドウ
   - Firefox と Chrome
-  - etc.
   
-  複数のブラウザでguestbookアプリケーションを開いたら， それぞれのブラウザ上で **フォームに任意の文字列を入力** します。
+  複数のブラウザでguestbookアプリケーションを開けたら， それぞれのブラウザ上で **フォームに任意の文字列を入力** します。
   
   以下の図は，Chromeのシークレットウィンドウと，Firefoxを使用した場合の例です。
   
   ![guestbook-v1-lab3 application in chrome browser and firefox browser](images/guestbook-in-browser-v1-lab3-chrome-and-firefox-skitch.png)
 
-  - 任意のブラウザで文字列を入力する
-  - 複数のブラウザでページを更新する
+  - ブラウザごとに異なるの文字列を入力する
+  - 両方のブラウザでページを更新する
   - 同じ入力情報が確認できる
   
-  上記の動作を確認できたと思います。全てのPodインスタンスが同一のパーシスタンスストレージに書き込み，全てのインスタンスはguestbookエントリを表示するために同じストレージから読み出しています。つまり，guestbookアプリケーションが同一のRedisデータベースを指していることが分かります。データの永続化ができたことで，トラフィック増に応じてスケールするシンプルな3層アプリケーションを実現できました。
+  上記の動作を確認できたと思います。
+  これにより，全てのPodインスタンスが同一のRedisデータベースに書き込み，全てのインスタンスはguestbookエントリを表示するために同じRedisデータベースから読み出していることがわかります。
+  データの永続化ができたことで，トラフィック数の増加に応じてスケールもできるシンプルな3層アプリケーションを実現できました。
 
+  >補足:
+  >今回はデータストアをコンテナとしてデプロイしましたが、実はこのコンテナが落ちてしまうとそこに保持しているデータも消えてしまいます。これを回避するためには，データの保存先をメモリではなくブロックストレージやファイルストレージなどのストレージを置く必要があります。
+  >なお，Kubernetesにおけるデータの永続化の方法はいくつものオプションがあります。今回のようにデータストアをコンテナとして用意する以外にも，クラウドベンダーが提供するマネージドのデータベースサービスや，オブジェクトストレージなども利用できます。利用用途に応じて選択してください。
 
 ### `redis-slave` という名前のRedisデータベースを追加して，読み/書きの役割を複数のRedisで使い分けるように構成する
 
-永続化データベースを使用できるようになりましたが，一般的に言われる主なボトルネックは，各リクエストを処理するデータベース・サーバーを一つしか持っていないことです。そこでシンプルな解決策を実施してみましょう。解決策の一つは， **読み/書き用に異なるデータベースを用いて分離することでデータ一貫性を満たす** 方法です。
+永続化データベースを使用できるようになりましたが，一般的に言われる主なボトルネックは，リクエストを処理するデータベース・サーバーを一つしか持っていないことです。
+そこでシンプルな解決策を実施してみましょう。解決策の一つは， **読み/書き用に異なるデータベースを用いて分離することでデータの一貫性を満たす** 方法です。
 
-`redis-slave`という名前のDeploymentを作成し，データの読み(read)を管理するredisデータベースとして動作させます。
-スケーリングに対応する際は，`redis-slave`を複数インスタンス用意することで，データベースへのリクエストを捌けるようにします。
+`redis-slave`という名前のDeploymentを作成し，データの読み出し(read)をするredisデータベースとして動作させます。
+スケーリングする際は，`redis-slave`を複数インスタンス用意することで，データベースへのリクエストを分散して処理できるようにします。
 
 目指す構成イメージは以下です。
 
 ![guestbook-redis-master-slace-persistance](images/Master-Slave.png)
-
 
 10. Redis slaveのdeploymentの構成見てみましょう。
 
@@ -464,14 +510,13 @@ $ cd guestbook/v1
             containerPort: 6379
   ```
 
-  `spec.replicas: 2`の記載があり,2つのレプリカを動作するように構成されていることが分かります。
-
+  `spec.replicas: 2`の部分で，2つのレプリカを生成するように構成されていることが分かります。
 
 11. Redis Slaveデータベースのdeploymentを作成します。
 
   実行例:
 
-  ```
+  ```bash
   $ kubectl create -f redis-slave-deployment.yaml
   deployment.apps/redis-slave created
   ```
@@ -487,9 +532,9 @@ $ cd guestbook/v1
   redis-slave-586b4c847c-lw5gj   1/1     Running   0          1m
   ```
 
-13. Redis SlaveのいずれかのPodのコンテナ内に入り，データベースを正しく閲覧できるか確認します。
+13. Redis Slaveのコンテナ内に入り，データベースを正しく閲覧できるか確認します。
 
-  12.で確認したPod名のうち1つ選択して(上記例では`redis-slave-586b4c847c-kj4q9`)を引数に指定してコマンド実行しコンテナ内に入って操作します。
+  12.で確認したPod名のうち1つを選択します(上記例では`redis-slave-586b4c847c-kj4q9`)。これを引数に指定してコマンド実行し，コンテナ内に入って操作します。
 
   実行例:
 
@@ -505,7 +550,7 @@ $ cd guestbook/v1
   127.0.0.1:6379> exit
   ```
 
-  手順9.で入力した文字列が格納されていて，正常に接続できていることが確認できます。
+  手順9.で入力した文字列が出力され，正常にデータが保存できていることが確認できます。
 
 14. Redis Slaveデータベースを外部公開するためのServiceの構成を見てみましょう。
 
@@ -530,12 +575,12 @@ $ cd guestbook/v1
 
 15. guestbookアプリからRedis Slaveデータベースに接続するためのServiceを作成します。
 
-  ```
+  ```bash
   $ kubectl create -f redis-slave-service.yaml
   service/redis-slave created
   ```
 
-16. guestbookアプリケーションがRedis Slaveデータベースを発見できるようにguestbookアプリを再起動します。
+16. guestbookアプリケーションがRedis Slaveデータベースに接続できるようguestbookアプリを再起動します。
 
   実行例:
 
@@ -550,7 +595,6 @@ $ cd guestbook/v1
 17. ブラウザ上で以下のURLからgurstbookアプリの動作をテストします。
 
   ブラウザで`<Public IP>:<NodePort>`を開きます。
-
 
 以上でLab3のハンズオンは完了です。
 
