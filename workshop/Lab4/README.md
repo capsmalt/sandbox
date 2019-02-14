@@ -58,9 +58,7 @@ IBM Cloud アカウントの詳細              XXXX Account (xxxxxxxxxxxxxxxxxx
 IBM Cloud 組織の詳細                     ()
 ```
 
-3. Make sure that the steps above worked by running `echo <MYREGISTRY>/<MYNAMESPACE>` . You should see output similar to `registry.ng.bluemix.net/mynamespace`
-
-4. **jpetstoreweb** イメージをビルドし、レジストリーにプッシュします。 
+3. **jpetstoreweb** イメージをビルドし、レジストリーにプッシュします。 
 
 ```bash
 $ cd jpetstore
@@ -70,7 +68,7 @@ $ docker push <MYREGISTRY>/<MYNAMESPACE>/jpetstoreweb
 
    >`Unauthorized ` と表示された場合は`ibmcloud cr login` を実行してIBM Cloudにログインしてください。
 
-5. 同様に、**jpetstoredb** イメージをビルドします。
+4. 同様に、**jpetstoredb** イメージをビルドします。
 
 ```bash
 $ cd db
@@ -78,7 +76,7 @@ $ docker build . -t <MYREGISTRY>/<MYNAMESPACE>/jpetstoredb
 $ docker push <MYREGISTRY>/<MYNAMESPACE>/jpetstoredb
 ```
 
-10. レジストリーへのプッシュが完了したことを確認するために、IBM Cloud Container Registryに保存されたイメージの一覧を表示します。 
+5. レジストリーへのプッシュが完了したことを確認するために、IBM Cloud Container Registryに保存されたイメージの一覧を表示します。 
 
 ```bash
 $ ibmcloud cr images --restrict $MYNAMESPACE
@@ -149,6 +147,8 @@ $ ibmcloud cs workers mycluster
 
 JpetStoreアプリがデプロイされました。
 
+> 自分でビルドしたコンテナイメージを使用する場合は`helm/modernpets/values.yaml`の`repository`セクションを `<MYREGISTRY>/<MYNAMESPACE>`に置き換えます
+
 ### 補足: YAMLファイルを使用したデプロイ
 
 Lab3までと同様、yamlファイルを使用してデプロイすることも可能です。
@@ -187,6 +187,8 @@ NAME                      DESIRED   CURRENT   READY     AGE
 jpetstoredb-5fd4df446d    1         1         1         33s
 jpetstoreweb-5f7c96bc8b   2         2         2         33s
 ```
+
+> 自分でビルドしたコンテナイメージを使用する場合は`jpetstore/jpetstore.yaml`の`image`セクションを `<MYREGISTRY>/<MYNAMESPACE>`に置き換えます
 
 ## 動作確認
 
