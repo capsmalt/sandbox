@@ -1,86 +1,133 @@
-# Lab5: Watson APIを使ったアプリケーションのデプロイ
+# Lab5) コンテナアプリケーションとWatson APIとの連携
 
 このLabではクラウドサービスや外部APIをKubernetesから呼び出す方法について学びます。
 
-## つくるもの
+フロント用Webアプリと，画像イメージを格納したDBから成る`JpetStore`アプリケーションに対して機能拡張します。
+具体的には，入力画像を画像認識して，JpetStoreのDB内に類似画像が存在するか否かをレスポンスとして返してくれる機能を追加します。
 
-Lab4ではWebとDBから構成されるレガシーなJavaアプリケーションをコンテナ化し、Kubernetesにデプロイしました。これにより、既存のアプリケーションがモダナイズできたことになります。
-このLab5では新しいマイクロサービス`MMSSearch`を実装し、`JpetStore`アプリを拡張します。
+この追加機能自体は新しいマイクロサービス`MMSSearch`として実装したものを使用し，IBM Cloudの画像認識サービス([Watson Visual Recognition](https://www.ibm.com/watson/services/visual-recognition/))に連携させる方法をとります。
 
-`MMSSearch`は画像認識の機能をもつチャットアプリケーションです。
-画像認識にはIBM Cloudの画像認識サービス([Watson Visual Recognition](https://www.ibm.com/watson/services/visual-recognition/))を使用します。
+>補足:
+> `MMSSearch`はGo言語で書かれた画像認識機能をもつ(外部サービスを呼び出す)チャットアプリケーションです。
 
 ![](images/mmssearch-architecture.png)
 
-## Visual Recognitionサービスの作成
+ここで実施する作業は以下の3つです。
 
-ブラウザで [IBM Cloudのカタログページ](https://cloud.ibm.com/catalog/) にアクセスし、「AI」カテゴリにある「Visual Recognition」を選択します。
+- 1) IBM Cloud Visual Recognitionサービスの作成 (以降，VRサービス)
+- 2) VRサービスにアクセスするためのAPI KeyをKuberneteリソースのSecretとして作成
+- 3) `MMSSearch`アプリケーションのデプロイ
 
-![](images/catalog.png)
+## 1) Visual Recognitionサービスの作成
 
-デフォルトでサービスを作成する地域が「ダラス(Dallas)」、サービスプランは「ライト（Lite）」となっています。  
-「作成」をクリックしてサービスインスタンスを作成します。
+1. ブラウザで [IBM Cloudのカタログページ](https://cloud.ibm.com/catalog/) にアクセスし，「AI」カテゴリにある「Visual Recognition」を選択します。
 
-![](images/createvr.png)
+  ![](images/catalog.png)
 
-サービスが作成されると画面が遷移し、サービスの詳細画面が表示されます。「管理」画面に遷移すると、API呼び出しをするために必要な**APIキー**が取得できます。このAPIキーはこの後使うのでコピーしておいてください。
+2. 以下のように設定されていることを確認して，「作成」をクリックしてサービスインスタンスを作成します。
+  
+  - サービス名: `Visual Recognition-xxx(ユニーク値)`
+  - デプロイする地域: `ダラス(Dallas)`
+  - リソース・グループの選択: `Default`
+  - タグ: `(空欄)`
+  - サービスプラン: `ライト（Lite）`
 
-![](images/vr_apikey.png)
+  >補足:  
+  > 下図はイメージです。デフォルト値が埋め込まれていますが，万一異なる設定となっている場合は上記のように変更してください。
+  > 
+  > ![](images/createvr.png)
+  > 
 
-## Kubernetes Secret の作成
+3. API呼び出しをするために必要な **API Key** を取得します。
 
-Kubernetes上のアプリケーションから外部サービスを呼び出すための設定を行います。  
+  VRサービスが作成されると画面が自動遷移し，サービスの詳細画面が表示されます。
+  
+  下図を参考に「管理」メニューを開いて **API Key** をコピーしておいてください。
+  
+  ![](images/vr_apikey.png)
 
-外部サービスを呼び出すためにはAPIキーやユーザID/パスワードが必要となりますが、これらの情報はアプリケーションとは切り離して別の設定ファイルとして管理することが推奨されています。  
-Kubernetesで設定ファイルを管理する方法としては`Configmap` や `Secret` がありますが、APIキーのような機密性の高い情報は`Secret`を使用することが推奨されています。
 
-`Secret`を作成するための事前準備として、APIキーを外部ファイルとして用意します。  
-テンプレートファイル**mms-secrets.json.template**を使用して、**mms-secrets.json** ファイルを作成してください:
+## 2) VRサービスにアクセスするためのAPI KeyをKuberneteリソースの`Secret`として作成
 
-```bash
-# jpetstore-kubernetes ディレクトリーにいる状態から操作をします
-$ cd mmssearch
-$ cp mms-secrets.json.template mms-secrets.json
-```
+4. `Secret`を作成するための事前準備として，API Keyを外部ファイルとして用意します。
 
-エディタで**mms-secrets.json** を開き、先ほどコピーしておいたVisual RecognitionのAPIキーを貼り付けます。
+  テンプレートファイル **mms-secrets.json.template** を使用して， **mms-secrets.json** ファイルを作成します。
+  
+  実行例:
 
-![](images/vr_credential.png)
+  ```bash
+  jpetstore-kubernetes/mmssearcｈ ディレクトリで操作します。
+  $ cp mms-secrets.json.template mms-secrets.json
+  ```
 
-これで事前準備は完了です。このファイルを元にKuberenetesクラスターのSecretを生成します。
+5. `mms-secrets.json` にVRサービスのAPI Keyを貼り付けます。
 
-```bash
-# mmssearchディレクトリに遷移
-$ cd mmssearch
+  **mms-secrets.json**  を任意のエディタで開いて，以下を参考にVRサービスのAPI Keyを指定します。
 
-# Secretの生成
-$ kubectl create secret generic mms-secret --from-file=mms-secrets=./mms-secrets.json
-secret "mms-secret" created
-```
+  ```json
+  {
+    "watson":
+    {
+      "url": "https://gateway.watsonplatform.net/visual-recognition/api",
+      "note": "It may take up to 5 minutes for this key to become active",
+      "api_key": "XXXXXX 自身のVRサービスのAPI Keyを貼り付ける XXXXXX"
+    }
+  }
+  ```
 
-`mms-secret`という名前で`Secret`が生成されました。  
-正しく生成できているか確認してみましょう。
+6. 手順5.で用意した`mms-secrets.json`を元にKuberenetesリソースのSecretを生成します。
 
-```bash
-$ kubectl get secret mms-secret -o yaml
-apiVersion: v1
-data:
-  mms-secrets: ewogICJ3YXRzb24iOgogIHsKICAgICJ1cmwiOiAiaHR0cHM6Ly9nYXRld2F5LndhdHNvbnBsYXRmb3JtLm5ldC92aXN1YWwtcmVjb2duaXRpb24vYXBpIiwKICAgICJub3RlIjogIkl0IG1heSB0YWtlIHVwIHRvIDUgbWludXRlcyBmb3IgdGhpcyBrZXkgdG8gYmVjb21lIGFjdGl2ZSIsCiAgICAiYXBpX2tleSI6IHJ4bk5ITFUyWm8yVlRTODJ1TUYzcDJRdzB0bkZHTkYyX002ZVJoc2hNNERmIgogIH0KfQo=
-kind: Secret
-metadata:
-  creationTimestamp: 2019-02-13T11:26:41Z
-  name: mms-secret
-  namespace: default
-  resourceVersion: "2472"
-  selfLink: /api/v1/namespaces/default/secrets/mms-secret
-  uid: 3c7bed61-2f82-11e9-ad89-9295e43053f2
-type: Opaque
-```
+  `kubectl create secret`コマンドで作成します。
 
- >mms-secretのところにはランダムの文字列が並んでいますが、これはAPIキーがBase64 エンコードされているものです。
- >なお、Configmapとして生成した場合は暗号化されず平文のまま値が格納されます。
+  実行例: 
 
-これで、Visual RecognitionのAPIキーがSecretとしてKubernetesクラスターに渡されました。  
+  ```bash
+  jpetstore-kubernetes/mmssearchで操作します。
+  $ kubectl create secret generic mms-secret --from-file=mms-secrets=./mms-secrets.json
+  secret/mms-secret created
+  ```
+
+  `mms-secret`という名前で`Secret`が生成されました。  
+
+  >補足1:  
+  > 生成されたSecretは以下のように確認できます。
+  > 
+  > 実行例:
+  > 
+  > ```bash
+  > $ kubectl get secret mms-secret -o yaml
+  > apiVersion: v1
+  > data:
+  >  mms-secrets: ewogICJ3YXRzb24iOgogIHsKICAgICJ1cmwiOiAiaHR0cHM6Ly9nYXRld2F5LndhdHNvbnBsYXRmb3JtLm5ldC92aXN1YWwtcmVjb2duaXRpb24vYXBpIiwKICAgICJub3RlIjogIkl0IG1heSB0YWtlIHVwIHRvIDUgbWludXRlcyBmb3IgdGhpcyBrZXkgdG8gYmVjb21lIGFjdGl2ZSIsCiAgICAiYXBpX2tleSI6ICJ5cGtQNDhScUhfci1NMTdPRm4xV0p5bEtzVXZnNnc1RFFwOXBlMy1fMWRfSSIgCiAgfQp9Cg==
+  > kind: Secret
+  > metadata:
+  >   creationTimestamp: 2019-02-14T10:29:03Z
+  >   name: mms-secret
+  >   namespace: default
+  >   resourceVersion: "34546"
+  >   selfLink: /api/v1/namespaces/default/secrets/mms-secret
+  >   uid: 59cbcc9e-3043-11e9-9576-227f65586521
+  > type: Opaque
+  > ```
+  > 
+  > `data.mms-secrets: ` にAPI Keyの情報が含まれています。Base64でエンコードされるため機密性を高く保つことができます。
+  > 
+  > 
+  >補足2:  
+  > 外部サービスを呼び出すためにはAPI KeyやユーザID/パスワードが必要となりますが，これらの情報はアプリケーションとは切り離して別の設定ファイルとして管理することが推奨されています。例えば，アプリケーションコードと一緒に機密性の高い情報をGitHubやGitLab上に置くことが推奨されないことは理解しやすいかと思います。他にも管理負荷を下げる意味でも分離した方が良いとされています。
+  > 
+  > ちなみにKubernetesで認証情報など設定系の情報を管理する方法としては`ConfigMap`や`Secret`を使用する方法があります。API Keyのような機密性の高い情報は`Secret`を使用することが推奨されています。ConfigMapとして生成した場合は暗号化されず平文のまま値が格納されてしまうためです。
+  > 
+  > 
+  >補足3:  
+  > IBM Cloud CLIを使ったSecretの生成
+  > 
+  > IBM Cloudでは、KubernetesクラスターとIBM Cloudのサービスの接続を容易にするためのコマンド`ibmcloud cs cluster-service-bind`が用意されています。この方法でも`Secret`を作成できます。詳しくは[こちら](https://cloud.ibm.com/docs/containers/cs_integrations.html#adding_cluster)を参照してください。 
+
+
+##############################
+
+Kubernetes上のアプリケーションから外部サービスを呼び出すための設定を行います。
 
 実際にアプリケーションから読み出す方法は`Secret`を**Volumeとしてマウント**する方法と、**環境変数として参照**する方法があります。
 `MMSSearch`では以下のようにVolumeとしてマウントする方法で実装されています。
@@ -103,152 +150,123 @@ type: Opaque
 
 >`/etc/secret`に`mms-secrets.json`がマウントされます。
 
-### 補足: IBM Cloud CLIを使ったSecretの生成
-
-IBM Cloudでは、KubernetesクラスターとIBM Cloudのサービスの接続を容易にするためのコマンド`ibmcloud cs cluster-service-bind`が用意されています。  
-この方法でも`Secret`を作成できます。
-
-IBM Cloudで作成したサービスインスタンスの確認
-
-```bash
-$ ibmcloud resource service-instances
-tryiks@gmail.com としてアカウント try iks Account の下の リソース・グループ Default および すべての場所 で すべてのサービス のすべてのインスタンスを取得しています...
-OK
-名前                    場所       状態     タイプ
-Visual Recognition-33   us-south   active   service_instance
-```
-
-IKSクラスターと接続（`Secret`の作成）
-
-```bash
-$ ibmcloud cs cluster-service-bind mycluster default visual-recognition-xx
-```
-
-これを実行すると、`binding-<サービスインスタンス名>`という名前のsecretが生成されます。
-ただし実行前にCFの組織とスペースを`ibmcloud target`で指定する必要があります。詳しくは[こちら](https://cloud.ibm.com/docs/containers/cs_integrations.html#adding_cluster)を参照してください。 
-
-なおこの場合`jpetstore-watson-nodeport.yaml`を変更する必要あります。
-
-```yaml
-    # 中略
-    spec:
-      containers:
-      - name: mmssearch
-        image: kissyyy/mmssearch
-        ports:
-        - containerPort: 8080
-        env:
-        - name: DB_LOCATION
-          value: "tcp(db)/jpetstore"
-        volumeMounts:
-         - name: binding #変更
-           mountPath: "/etc/secrets"
-           readOnly: true
-      volumes:
-      - name: binding #変更
-        secret:
-          secretName: binding-vr-jpet #変更
-          items:
-          - key: binding #変更
-            path: mms-secrets.json
-```
-
-## アプリケーションのデプロイ
-
-### Helmを利用したデプロイ
-
-Helm チャートを使用してMMSSearch アプリをデプロイします。
-
-```bash
-# helmディレクトリーに遷移
-$ cd ../helm
-
-# MMSSearchアプリのデプロイ
-$ helm install --name mmssearch ./mmssearch
-NAME:   mmssearch
-LAST DEPLOYED: Wed Feb 13 20:31:56 2019
-NAMESPACE: default
-STATUS: DEPLOYED
-
-RESOURCES:
-==> v1/Service
-NAME       CLUSTER-IP    EXTERNAL-IP  PORT(S)         AGE
-mmssearch  172.21.1.254  <nodes>      8080:31941/TCP  2s
-
-==> v1beta2/Deployment
-NAME                 KIND
-mmssearch-mmssearch  Deployment.v1beta2.apps
+##############################
 
 
-NOTES:
-Get Cluster Public IP Adress:
-$ ibmcloud cs workers mycluster
-```
+## 3) `MMSSearch`アプリケーションのデプロイ
 
-MMSSearchアプリがデプロイされました。
+7. Helm チャートを使用してMMSSearchアプリケーションをデプロイします。
 
-### 補足：YAMLファイルを使用したデプロイ
+  `helm install`コマンドを使用します。
+  
+  MMSSearchのDeployment/Serviceなどを作成するHelmチャートは，`jpetstore-kubernetes/helm`ディレクトリに準備しています。
+  
+  実行例:
+  
+  ```bash
+  helmディレクトリー移動 (jpetstore-kubernetes/helm)
+  $ cd helm
 
-yamlファイルを使用してデプロイする場合は以下のようになります。
+  MMSSearchアプリのデプロイ
+  $ helm install --name mmssearch ./mmssearch
+  ```
 
-```bash
-#jpetstore-kubernetes/jpetstore ディレクトリに移動
-$ cd jpetstore
+  >補足1:  
+  > Podのステータスを確認してみます。
+  > 
+  > ```bash
+  > $ kubectl get pod -l app=mmssearch-mmssearch
+  > NAME                                   READY   STATUS    RESTARTS   AGE
+  > mmssearch-mmssearch-55b789857d-k8mwn   1/1     Running   0          2m
+  > ```
+  >
+  > さらに`jpetstoreアプリ`と`mmssearchアプリ`に関連するKubernetesリソースをまとめて確認してみましょう。
+  > 
+  > ```bash
+  > kubectl get all
+  > NAME                                                     READY   STATUS    RESTARTS   AGE
+  > pod/jpetstore-modernpets-jpetstoredb-7dd76668b5-crtql    1/1     Running   0          8m
+  > pod/jpetstore-modernpets-jpetstoreweb-6d49474455-6j2j2   1/1     Running   0          8m
+  > pod/jpetstore-modernpets-jpetstoreweb-6d49474455-tjc6g   1/1     Running   0          8m
+  > pod/mmssearch-mmssearch-55b789857d-k8mwn                 1/1     Running   0          4m
+  > 
+  > NAME                 TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)          AGE
+  > service/db           ClusterIP   172.21.240.192   <none>        3306/TCP         8m
+  > service/kubernetes   ClusterIP   172.21.0.1       <none>        443/TCP          1d
+  > service/mmssearch    NodePort    172.21.19.130    <none>        8080:31417/TCP   4m
+  > service/web          NodePort    172.21.214.98    <none>        80:32025/TCP     8m
+  > 
+  > NAME                                                DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+  > deployment.apps/jpetstore-modernpets-jpetstoredb    1         1         1            1           8m
+  > deployment.apps/jpetstore-modernpets-jpetstoreweb   2         2         2            2           8m
+  > deployment.apps/mmssearch-mmssearch                 1         1         1            1           4m
+  > 
+  > NAME                                                           DESIRED   CURRENT   READY   AGE
+  > replicaset.apps/jpetstore-modernpets-jpetstoredb-7dd76668b5    1         1         1       8m
+  > replicaset.apps/jpetstore-modernpets-jpetstoreweb-6d49474455   2         2         2       8m
+  > replicaset.apps/mmssearch-mmssearch-55b789857d                 1         1         1       4m
+  
+  以上でMMSSearchアプリがデプロイされました。
 
-# MMSSearchアプリのデプロイ
-$ kubectl apply -f jpetstore-watson.yaml
-service "mmssearch" created
-deployment.extensions "mmssearch" created
-```
 
-MMSSearchのコンテナがデプロイされます。
-
-```bash
-$ kubectl get all
-NAME                            READY     STATUS              RESTARTS   AGE
-jpetstoredb-5fd4df446d-pm79t    1/1       Running             0          21m
-jpetstoreweb-5f7c96bc8b-957nf   1/1       Running             0          21m
-jpetstoreweb-5f7c96bc8b-hz4ql   1/1       Running             0          21m
-mmssearch-6bf55f59d6-sbk28      0/1       ContainerCreating   0          13s
-
-NAME         TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)          AGE
-db           ClusterIP   172.21.206.30    <none>        3306/TCP         21m
-kubernetes   ClusterIP   172.21.0.1       <none>        443/TCP          1h
-mmssearch    NodePort    172.21.207.171   <none>        8080:30213/TCP   14s
-web          NodePort    172.21.0.235     <none>        80:31231/TCP     21m
-
-NAME           DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
-jpetstoredb    1         1         1            1           21m
-jpetstoreweb   2         2         2            2           21m
-mmssearch      1         1         1            0           13s
-
-NAME                      DESIRED   CURRENT   READY     AGE
-jpetstoredb-5fd4df446d    1         1         1         21m
-jpetstoreweb-5f7c96bc8b   2         2         2         21m
-mmssearch-6bf55f59d6      1         1         0         13s
-```
-> Lab4でデプロイしたJpetStoreアプリも含まれています。
+  >補足2:  
+  > yamlファイルを使用してデプロイする場合は以下のようになります。(**今回は実施しません**)
+  > 
+  > ```bash
+  > #jpetstore-kubernetes/jpetstore ディレクトリに移動
+  > $ cd jpetstore
+  > $ kubectl apply -f jpetstore-watson.yaml
+  > service "mmssearch" created
+  > deployment.extensions "mmssearch" created
+  > ```
 
 ## 動作確認
 
-ブラウザ上で以下のURLからjpetアプリの動作をテストします:  
-ブラウザで`<クラスターのPublic IP>:<ポート>`にアクセスしてください。
+8. ブラウザ上でアプリケーションの動作を確認します。
 
-[pet-images](https://github.com/kissyyy/jpetstore-kubernetes/tree/master/pet-images)ディレクトリにある動物の画像をアップロードすると、Watson Visual Recognitionによる画像認識が行われ、認識した結果（動物の種類）が`JpetStore`にある動物かどうかが返ってきます。
+    ブラウザで`<Public IP>:<NodePort>`を開きます。
+    
+    >補足:  
+    > ワーカーノードの `Public IP` は以下のように確認します。
+    > 
+    > ```bash
+    > $ ibmcloud cs workers mycluster
+    > OK
+    > ID                                                 Public IP       Private IP      Machine Type   State    Status   Zone    Version
+    > kube-hou02-pa705552a5a95d4bf3988c678b438ea9ec-w1   184.173.52.92   10.76.217.175   free           normal   Ready    hou02   1.10.12_1543
+    > ```
+    > `NodePort` は以下のように確認します。
+    > 
+    > ```bash
+    > $ kubectl get service mmssearch
+    > NAME        TYPE       CLUSTER-IP      EXTERNAL-IP   PORT(S)          AGE
+    > mmssearch   NodePort   172.21.19.130   <none>        8080:31417/TCP   19m
+    > ```
+    > 
+    > 上記の出力例の場合の `<Public IP>:<NodePort>`は，次のようになります。
+    > 
+    > - Public IP: `184.173.52.92`
+    > - NodePort: `31417`
+    > 
+    > したがって，ブラウザ上で `184.173.52.92:31417` にアクセスするとアプリケーションが開きます。
+
+
+ブラウザで`<クラスターのPublic IP>:<ポート>`にアクセスしてください。
+    [pet-images](https://github.com/kissyyy/jpetstore-kubernetes/tree/master/pet-images)ディレクトリにある動物の画像をアップロードすると，Watson Visual Recognitionによる画像認識が行われ，認識した結果（動物の種類）が`JpetStore`データベースに登録されている動物か否かが返ってきます。
 
    ![](images/webchat.png)
 
-## お片付け
+以上でコンテナアプリケーションとWatson APIを連携させる操作は完了です。
 
-```bash
-# Lab4, 5でデプロイした2つのアプリを削除します
-$ helm delete jpetstore --purge
-$ helm delete mmssearch --purge
+最後に， **Lab5で作成したK8sリソースを以下のコマンドで削除** します。
 
-# クラスターに保存されているSecretを削除します
-$ kubectl delete secret mms-secret
-
-```
-
-以上でLab5は終了です。  
-最後のハンズオンは[Lab6](../Lab6/)です。
+  ```bash
+  1) Lab4, 5でデプロイした2つのアプリを削除します。
+  $ helm delete jpetstore --purge
+  $ helm delete mmssearch --purge
+  
+  2) クラスターに保存されているSecretを削除します。
+  $ kubectl delete secret mms-secret
+  ```
+  
+次のハンズオンはこちら [Lab6](../Lab6/README.md) です。
