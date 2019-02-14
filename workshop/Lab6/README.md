@@ -150,6 +150,7 @@ Go Template言語で環境により異なる値が記載されています
 
 ## 設定を変更する
 では、次にIKSのフリークラスターに合わせ、KubernetesのNodePortで公開できるように、テンプレートを修正してみましょう。
+templates/service.yamlの17行目から３行追加します。
 
    ```bash
    $cat mychart/templates/service.yaml 
@@ -177,7 +178,7 @@ Go Template言語で環境により異なる値が記載されています
        release: {{ .Release.Name }}
    ```
 
-以下の設定を追記しています。
+追加する行は以下の設定です。
 
    ```bash
       {{- if and (.Values.service.nodePort) (eq .Values.service.type "NodePort") }}
