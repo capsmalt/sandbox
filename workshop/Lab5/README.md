@@ -10,7 +10,7 @@
 >補足:
 > `MMSSearch`はGo言語で書かれた画像認識機能をもつ(外部サービスを呼び出す)チャットアプリケーションです。
 
-![](images/mmssearch-architecture.png)
+![](images/mmssearch-architecture-rev.png)
 
 ここで実施する作業は以下の3つです。
 
