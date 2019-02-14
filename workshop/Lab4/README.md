@@ -102,6 +102,16 @@ modernpets
 1 directory, 6 files
 ```
 
+**IKS接続のための事前準備を必ず実施してください。**
+
+```bash
+$ ibmcloud login
+$ ibmcloud cs cluster-config mycluster
+出力結果の`export xxx`をターミナル上でペーストする
+$ export xxxx
+$ ibmcloud cs cluster-get mycluster
+```
+
 まずHelmの初期化を実施します。
 
 ```bash
