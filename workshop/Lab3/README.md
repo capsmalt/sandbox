@@ -1,4 +1,4 @@
-# Lab 3) マニフェストファイルを使用したスケーリングおよびアップデート
+# Lab 3) マニフェストファイルの使用とRedisデータベースコンテナとの連携
 Lab 1，2で使用してきた`guestbook`アプリケーションと同じものを使用します。
 これまでとの違いは，`kubectl run`コマンドなどで直接Podを作成・開始するのではなく，マニフェストファイル(構成ファイル)を使用してアプリケーションのデプロイを行う点です。
 
@@ -6,7 +6,7 @@ Kubernetesのコントローラーがマニフェストファイルの記述内�
 
 Lab 3では大きく以下の2つを体験します。
 
-- **1. マニフェストファイルを使用したアプリケーションのスケーリング**
+- **1. マニフェストファイルを使用したアプリケーションのデプロイとスケーリング**
 - **2. Redisコンテナを追加起動してguestbookアプリケーションと連携**
 
 ## 0. 事前準備 (リポジトリのクローン)
@@ -198,7 +198,7 @@ $ cd guestbook/v1
   service/guestbook created
   ```
   
-9. ブラウザ上で以下のURLからgurstbookアプリの動作をテストします
+9. ブラウザ上で以下のURLからguestbookアプリの動作をテストします。
 
     ブラウザで`<Public IP>:<NodePort>`を開きます。
     
@@ -231,191 +231,285 @@ $ cd guestbook/v1
 
 ## 2. Redisコンテナを追加起動してguestbookアプリケーションと連携
 
-ディレクトリ配下のguestbookのソースコードを見ると，多様なデータストアをサポートしていることがわかります。
-デフォルトでは，メモリ上でguestbookエントリのログを保持する構成になっています。
-これはテスト目的であれば問題ない構成ですが，アプリケーションをスケールさせるようなリアルな環境では上手く機能しないことでしょう。
+`guestbook/v1/guestbook`配下のguestbookアプリケーションのソースコードを見ると，多様なデータストアをサポートしていることがわかります。
+デフォルトではメモリ上でguestbookエントリのログを保持する構成になっています。これはテスト目的であれば問題ない構成ですが，アプリケーションをスケールさせるような実働環境では上手く機能しない場合が多いかと思います。
 
-この問題を解決するために，アプリケーションの全てのインスタンス間で同じデータストアを共有する必要があります。今回は，RedisデータベースをK8sクラスターにデプロイして使用します。Redisインスタンスは，guestbookと似たような構成で定義します。
+この問題を解決するために，アプリケーションの全インスタンス間で同じデータストアを共有できる必要があります。今回はRedisデータベースをK8sクラスターにデプロイして使用します。Redisインスタンスはguestbookと似たような構成で定義します。
 
-**redis-master-deployment.yaml**
+目指す構成イメージは以下です。
 
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: redis-master
-  labels:
-    app: redis
-    role: master
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
+![guestbook-redis-master-persistance](images/Master.png)
+
+
+ここで実施する作業自体は4ステップです。
+
+- `redis-master-deployment.yaml` を使って `redis-master`という名前のdeploymentを作成する
+- `redis-master-service.yaml` を使って `redis-master`という名前のserviceを作成する
+- 複数のguestbookアプリケーションが同一のRedisデータベースを使うことで永続化できることを確認する
+- `redis-slave` という名前のRedisデータベースを追加して，読み/書きの役割を複数のRedisで使い分けるように構成する
+
+### Redis Masterデータベースのdeploymentを作成しましょう。
+
+1. redis-masterデータベースのdeploymentの構成を見てみましょう。
+
+  **redis-master-deployment.yaml**  を任意のエディタで開きます。  
+
+  ```yaml
+  apiVersion: apps/v1
+    kind: Deployment
+  metadata:
+    name: redis-master
+    labels:
       app: redis
       role: master
-  template:
-    metadata:
-      labels:
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
         app: redis
         role: master
-    spec:
-      containers:
-      - name: redis-master
-        image: redis:2.8.23
-        ports:
-        - name: redis-server
-          containerPort: 6379
-```
+    template:
+      metadata:
+        labels:
+          app: redis
+          role: master
+      spec:
+        containers:
+        - name: redis-master
+          image: redis:2.8.23
+          ports:
+          - name: redis-server
+            containerPort: 6379
+  ```
 
-このyamlは，'redis-master' という名前のDeploymentでRedisデータベースを作成します。
-シングルインスタンスとして作成するので，レプリカ数を1にセットします。guestbookアプリケーションはRedisに接続しデータを永続化します。
-コンテナイメージは，'redis:2.8.23' を使用し，デフォルトのRedisポート6379で公開します。
+  このyamlは，'redis-master' という名前のDeploymentでRedisデータベースを作成します。シングルインスタンスとして作成するので，レプリカ数を1にセットします。guestbookアプリケーションはRedisに接続しデータを永続化します。コンテナイメージは，'redis:2.8.23' を使用し，デフォルトのRedisポート番号である6379番で公開します。
 
-- RedisのDeploymentを作成します:
+2. Redis MasterデータベースのDeploymentを作成します。
 
-    ```bash
-    $ kubectl create -f redis-master-deployment.yaml
-    ```
+  実行例:
 
-- RedisサーバーのPod動作を確認します:
+  ```bash
+  $ kubectl create -f redis-master-deployment.yaml
+  deployment.apps/redis-master created
+  ```
 
-    ```bash
-    $ kubectl get pods -l app=redis,role=master
-    NAME                 READY     STATUS    RESTARTS   AGE
-    redis-master-q9zg7   1/1       Running   0          2d
-    ```
+3. Redis MasterデータベースのPod動作を確認します。
 
-- スタンドアローン動作するRedisをテストします:
+  実行例:
 
-    `$ kubectl exec -it redis-master-q9zg7 redis-cli`
+  ```bash
+  $ kubectl get pods -l app=redis,role=master
+  NAME                            READY   STATUS    RESTARTS   AGE
+  redis-master-5d8b66464f-qjjfn   1/1     Running   0          32s
+  ```
 
-    "kubectl exec" コマンドは，指定されたコンテナ内で，2つ目のプロセスを開始します。
-    今回は，"redis-master-q9zg7"というコンテナ内で，"redis-cli" コマンドを実行しました。
+4. スタンドアローン動作するRedis Masterデータベースをテストします。
 
-    コンテナ内に入れば，"redis-cli" コマンドを使って，Redisデータベースが正常に動作しているか確認したり，必要に応じて構成したりできます。
+  3.で確認したPod名(上記例では`redis-master-5d8b66464f-qjjfn`)を引数に指定してコマンド実行しコンテナ内に入って操作します。
 
-    ```bash
-    redis-cli> ping
-    PONG
-    redis-cli> exit
-    ```
+  実行例:   
+  
+  ```bash
+  $ kubectl exec -it redis-master-5d8b66464f-qjjfn redis-cli
+  127.0.0.1:6379> ping
+  PONG
+  127.0.0.1:6379> exit
+  ```
+  >補足:  
+  > `kubectl exec -it POD(正確には1つのコンテナ) COMMAND`コマンドは指定されたコンテナ内でプロセスを動作させる際に使用できます。
+  > 今回は，`redis-master-5d8b66464f-qjjfn`というPODのコンテナ内で`redis-cli`コマンドを実行しました。さらにコンテナ内でコマンド実行することでRedisデータベースが正常動作しているかを確認しています。
+  > 今回の例では，正常なら`ping`に対して`PONG`とレスポンスを返してくれる仕組みを使って確認しています。
 
-次に，guestbookアプリケーションが `redis-master` Deploymentに接続できるように，Serviceを公開しましょう。
+### guestbookアプリケーションからRedis Masterデータベースに接続できるようにserviceを公開しましょう。
 
-**redis-master-service.yaml**
+5. Redis Masterデータベースのserviceの構成を見てみましょう。
 
-```yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: redis-master
-  labels:
-    app: redis
-    role: master
-spec:
-  ports:
-  - port: 6379
-    targetPort: redis-server
-  selector:
-    app: redis
-    role: master
-```
+  **redis-master-service.yaml**  を任意のエディタで開きます。  
 
-この構成ファイルは，'redis-master' Serviceを作成し，ポート番号6379で，かつ， "app=redis" と "role=master" が指定されたPodをターゲットとするように構成します。
+  ```yaml
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: redis-master
+    labels:
+      app: redis
+      role: master
+  spec:
+    ports:
+    - port: 6379
+      targetPort: redis-server
+    selector:
+      app: redis
+      role: master
+  ```
+
+  このyamlは，`redis-master`という名前のserviceを作成し，`6379番ポート`で外部公開します。さらに，`app=redis`と`role=master`のラベルが指定されたPodをターゲットにルーティングするように構成します。
 
 
-- Redis masterにアクセスするサービスを作成します:
+6. Redis Masterデータベースを外部公開するServiceを作成します。
 
-    ``` $ kubectl create -f redis-master-service.yaml ```
+  実行例:
 
-- データベースを使用するRedis serviceを発見できるようにguestbookを再起動します:
+  ```bash
+  $ kubectl create -f redis-master-service.yaml
+  service/redis-master created
+  ```
 
-    ```bash
-    $ kubectl delete deploy guestbook-v1 
-    $ kubectl create -f guestbook-deployment.yaml
-    ```
+7. guestbookアプリケーションがRedis Masterデータベースを発見できるようにguestbookアプリを再起動します。
 
-- ブラウザ上で以下のURLからgurstbookアプリの動作をテストします:
-  `<your-cluster-ip>:<node-port>`
+  実行例:
 
-複数のブラウザを開いてページを更新すると，一貫した状態を保持したguestbookの異なるコピーを確認できます。
-全てのインスタンスは同一のバッキング・パーシスタンスストレージに書き込み，全てのインスタンスはguestbookエントリを表示するために同じストレージから読み出します。
+  ```bash
+  $ kubectl delete deployment guestbook-v1
+  deployment.extensions "guestbook-v1" deleted
+  
+  $ kubectl create -f guestbook-deployment.yaml
+  deployment.apps/guestbook-v1 created
+  ```
 
-つまり，データの永続化ができるようになりました。
-従って，複数のコンテナが動作するようなトラフィック増に応じて，スケールするシンプルな3層アプリケーションができたことになります。
+8. ブラウザ上で以下のURLからgurstbookアプリの動作をテストします。
 
-しかし，一般的に言われる主なボトルネックは，各リクエストを処理するデータベース・サーバーを一つしか持っていないことです。一つのシンプルな解決策は，読み・書き用に異なるデータベースを用いて分離することで，データ一貫性を達成することです。
+  ブラウザで`<Public IP>:<NodePort>`を開きます。
+    
+  >補足:  
+  > これまでのハンズオンと同様に以下の手順で `Public IP`と`NodePort`の情報を取得できます。
+  > ワーカーノードの `Public IP` は以下のように確認します。
+  > ```
+  > $ ibmcloud cs workers mycluster
+  > OK
+  > ID                                                 Public IP       Private IP      Machine Type   State    Status   Zone    Version
+  > kube-hou02-pa705552a5a95d4bf3988c678b438ea9ec-w1   184.173.52.92   10.76.217.175   free           normal   Ready    hou02   1.10.12_1543
+  > ```
+  > `NodePort` は以下のように確認します。
+  > ```
+  > $ kubectl get service guestbook
+  > NAME        TYPE       CLUSTER-IP       EXTERNAL-IP   PORT(S)          AGE
+  > guestbook   NodePort   172.21.180.240   <none>        3000:30173/TCP   3m
+  > ```
+  > 上記の出力例の場合の `<Public IP>:<NodePort>`は，次のようになります。
+  > - Public IP: `184.173.52.92`
+  > - NodePort: `30173`
+  > 
+  > したがって，ブラウザ上で `184.173.52.92:30173` にアクセスするとアプリケーションが開きます。
 
-![rw_to_master](images/Master.png)
+  guestbook アプリの "v1" が動作していることを確認してください。
 
-`redis-slave`という名前のDeploymentを作成し，データの読み(read)を管理するredisデータベースと対話できるようにします。
-データを読む(read)用のいくつかのインスタンスを動作させて，データベースをスケールさせます。
+  ![guestbook-v1-lab3 application in browser](images/guestbook-in-browser-v1-lab3.png) 
 
-Redis slaveのdeploymentは2つのレプリカを動作するように構成されます:
+### 複数のguestbookアプリケーションが同一のRedisデータベースを使うことで永続化できることを確認しましょう
 
-![w_to_master-r_to_slave](images/Master-Slave.png)
+9. もう一つブラウザを立上げてguestbookアプリの動作させてテストします。
 
-**redis-slave-deployment.yaml**
+  複数のブラウザ同じguestbookアプリケーションを動作させる必要があります。
+  例えば以下のいずれかの方法で試してみましょう。
+  
+  - 通常ブラウザ と シークレットウィンドウ
+  - Firefox と Chrome
+  - etc.
+  
+  複数のブラウザでguestbookアプリケーションを開いたら， それぞれのブラウザ上で **フォームに任意の文字列を入力** します。
+  
+  以下の図は，Chromeのシークレットウィンドウと，Firefoxを使用した場合の例です。
+  
+  ![guestbook-v1-lab3 application in chrome browser and firefox browser](images/guestbook-in-browser-v1-lab3-chrome-and-firefox-skitch.png)
 
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: redis-slave
-  labels:
-    app: redis
-    role: slave
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
+  - 任意のブラウザで文字列を入力する
+  - 複数のブラウザでページを更新する
+  - 同じ入力情報が確認できる
+  
+  上記の動作を確認できたと思います。全てのPodインスタンスが同一のパーシスタンスストレージに書き込み，全てのインスタンスはguestbookエントリを表示するために同じストレージから読み出しています。つまり，guestbookアプリケーションが同一のRedisデータベースを指していることが分かります。データの永続化ができたことで，トラフィック増に応じてスケールするシンプルな3層アプリケーションを実現できました。
+
+
+### `redis-slave` という名前のRedisデータベースを追加して，読み/書きの役割を複数のRedisで使い分けるように構成する
+
+永続化データベースを使用できるようになりましたが，一般的に言われる主なボトルネックは，各リクエストを処理するデータベース・サーバーを一つしか持っていないことです。そこでシンプルな解決策を実施してみましょう。解決策の一つは， **読み/書き用に異なるデータベースを用いて分離することでデータ一貫性を満たす** 方法です。
+
+`redis-slave`という名前のDeploymentを作成し，データの読み(read)を管理するredisデータベースとして動作させます。
+スケーリングに対応する際は，`redis-slave`を複数インスタンス用意することで，データベースへのリクエストを捌けるようにします。
+
+目指す構成イメージは以下です。
+
+![guestbook-redis-master-slace-persistance](images/Master-Slave.png)
+
+
+10. Redis slaveのdeploymentの構成見てみましょう。
+
+  **redis-slave-deployment.yaml**  を任意のエディタで開きます。  
+
+  ```yaml
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: redis-slave
+    labels:
       app: redis
       role: slave
-  template:
-    metadata:
-      labels:
+  spec:
+    replicas: 2
+    selector:
+      matchLabels:
         app: redis
         role: slave
-    spec:
-      containers:
-      - name: redis-slave
-        image: kubernetes/redis-slave:v2
-        ports:
-        - name: redis-server
-          containerPort: 6379
-```
+    template:
+      metadata:
+        labels:
+          app: redis
+          role: slave
+      spec:
+        containers:
+        - name: redis-slave
+          image: kubernetes/redis-slave:v2
+          ports:
+          - name: redis-server
+            containerPort: 6379
+  ```
 
-- redis slave deploymentを作成します
+  `spec.replicas: 2`の記載があり,2つのレプリカを動作するように構成されていることが分かります。
+
+
+11. Redis Slaveデータベースのdeploymentを作成します。
+
+  実行例:
 
   ```
   $ kubectl create -f redis-slave-deployment.yaml
+  deployment.apps/redis-slave created
   ```
 
-- 全てのslaveレプリカが動作しているか確認します
+12. Redis Slaveデータベースの全てのPodが動作しているか確認します。
+
+  実行例:
 
   ```bash
   $ kubectl get pods -l app=redis,role=slave
-  NAME                READY     STATUS    RESTARTS   AGE
-  redis-slave-kd7vx   1/1       Running   0          2d
-  redis-slave-wwcxw   1/1       Running   0          2d
+  NAME                           READY   STATUS    RESTARTS   AGE
+  redis-slave-586b4c847c-kj4q9   1/1     Running   0          1m
+  redis-slave-586b4c847c-lw5gj   1/1     Running   0          1m
   ```
 
-- redis slaveのいずれかのPod内コンテナに入り，データベースを正しく閲覧できるか確認します
+13. Redis SlaveのいずれかのPodのコンテナ内に入り，データベースを正しく閲覧できるか確認します。
+
+  12.で確認したPod名のうち1つ選択して(上記例では`redis-slave-586b4c847c-kj4q9`)を引数に指定してコマンド実行しコンテナ内に入って操作します。
+
+  実行例:
 
   ```bash
-  $ kubectl exec -it redis-slave-kd7vx  redis-cli
+  $ kubectl exec -it redis-slave-586b4c847c-kj4q9 redis-cli
   127.0.0.1:6379> keys *
   1) "guestbook"
   127.0.0.1:6379> lrange guestbook 0 10
-  1) "hello world"
-  2) "welcome to the Kube workshop"
+  1) "test1"
+  2) "test  by firefox"
+  3) "test by chrome"
+  4) "test by chrome secret window"
   127.0.0.1:6379> exit
   ```
 
-次に，Redis slave serviceを公開します。
-一度デプロイされたら，"読み(read)"操作は `redis-slave` podに，"書き(write)"操作は `redis-master` podに送信されるように構成されます。
+  手順9.で入力した文字列が格納されていて，正常に接続できていることが確認できます。
 
-**redis-slave-service.yaml**
+14. Redis Slaveデータベースを外部公開するためのServiceの構成を見てみましょう。
+
+  **redis-slave-service.yaml**  を任意のエディタで開きます。  
 
   ```yaml
   apiVersion: v1
@@ -434,30 +528,47 @@ spec:
       role: slave
   ```
 
-- Redis slaveに接続するためのServiceを作成します
+15. guestbookアプリからRedis Slaveデータベースに接続するためのServiceを作成します。
 
   ```
   $ kubectl create -f redis-slave-service.yaml
+  service/redis-slave created
   ```
 
-- slave serviceを発見できるようにguestbookアプリケーションを再始動します
+16. guestbookアプリケーションがRedis Slaveデータベースを発見できるようにguestbookアプリを再起動します。
+
+  実行例:
 
   ```bash
   $ kubectl delete deploy guestbook-v1
+  deployment.extensions "guestbook-v1" deleted
+  
   $ kubectl create -f guestbook-deployment.yaml
+  deployment.apps/guestbook-v1 created
   ```
-    
-- ブラウザ上で以下のURLからgurstbookアプリの動作をテストします
 
-  `<your-cluster-ip>:<node-port>`
+17. ブラウザ上で以下のURLからgurstbookアプリの動作をテストします。
 
-以上でLab3のハンズオンは完了です。以下のコマンドを使用して，作成したKubernetesリソースを削除します。
+  ブラウザで`<Public IP>:<NodePort>`を開きます。
 
-```bash
-$ kubectl delete -f guestbook-deployment.yaml
-$ kubectl delete -f guestbook-service.yaml
-$ kubectl delete -f redis-slave-service.yaml
-$ kubectl delete -f redis-slave-deployment.yaml 
-$ kubectl delete -f redis-master-service.yaml 
-$ kubectl delete -f redis-master-deployment.yaml
-```
+
+以上でLab3のハンズオンは完了です。
+
+最後に，**Lab3で作成したK8sリソースを以下のコマンドを削除** します。
+
+  ```bash
+  各種Deployment/Serviceを削除する
+  1) guestbookアプリケーション
+  $ kubectl delete -f guestbook-deployment.yaml
+  $ kubectl delete -f guestbook-service.yaml
+
+  2) Redis Slaveデータベース
+  $ kubectl delete -f redis-slave-service.yaml
+  $ kubectl delete -f redis-slave-deployment.yaml 
+
+  3) Redis Masterデータベース
+  $ kubectl delete -f redis-master-service.yaml 
+  $ kubectl delete -f redis-master-deployment.yaml
+  ```
+
+次のハンズオンはこちら [Lab4](../Lab4/README.md) です。
