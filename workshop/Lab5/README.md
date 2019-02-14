@@ -181,7 +181,7 @@ mmssearch-mmssearch  Deployment.v1beta2.apps
 
 
 NOTES:
-iGet Cluster Public IP Adress:
+Get Cluster Public IP Adress:
 $ ibmcloud cs workers mycluster
 ```
 
