@@ -110,7 +110,7 @@ Helm チャートと呼ばれる定義ファイルを使用すると，アプリ
     ```bash
     jpetstore-kubernetes-min/helmディレクトリで操作します。
     $ cd ../helm
-    $ helm install --name jpetstore ./modernpets/
+    $ helm install --name jpetstore ./modernpets
     
     デプロイされたPodを確認します。
     $ kubectl get pods
