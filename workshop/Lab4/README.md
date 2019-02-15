@@ -58,7 +58,7 @@ Helm チャートと呼ばれる定義ファイルを使用すると，アプリ
     1 directory, 6 files
     ```
 
-    上記出力結果に含まれるファイル群を使用することで，
+    上記出力結果に含まれるファイルを使用することで，
     `JpetStore`アプリケーションをK8s上で動作させるために必要な`Deployment`や`Service`などのyamlを生成(して，K8sクラスターにデプロイ)することができます。
 
     >補足:  
@@ -121,7 +121,7 @@ Helm チャートと呼ばれる定義ファイルを使用すると，アプリ
     上記出力から，Webコンテナ(`jpetstoreweb`)のPodが2つ，DBコンテナ(`jpetstoredb`)のPodが1つがデプロイされていることが分かります。
     
     >補足:  
-    > 自分のコンテナイメージを使用する場合は，`helm/modernpets/values.yaml`の`repository`セクションを `<MYREGISTRY>/<MYNAMESPACE>`に置き換えます。
+    > 自分のコンテナイメージを使用する場合は，`helm/modernpets/values.yaml`の`repository`部分を `<MYREGISTRY>/<MYNAMESPACE>`に置き換えます。
     
 6. DeploymentやServiceについても確認します。
     
@@ -150,14 +150,14 @@ Helm チャートと呼ばれる定義ファイルを使用すると，アプリ
     
     Webコンテナ(`jpetstoreweb`)，DBコンテナ(`jpetstoredb`)それぞれの **Deployment** と **Service** も作成されていることが分かります。
     
-    通常は，今回のシンプルなケースであっても以下のyaml群を用意し，順にデプロイしていく必要があります。
+    通常は，今回のシンプルなケースであっても以下のyamlファイルを用意し，順にデプロイしていく必要があります。
 
         - `web-deployment.yaml`
         - `web-service.yaml`
         - `db-deployment.yaml`
         - `db-service.yaml`
 
-    Helmチャートを使うことで一括デプロイやロールバックなどの管理がやりやすくなります。
+    このようにHelmチャートを使うことで、一括デプロイやロールバックなどの管理がやりやすくなります。
     
 7. ブラウザ上でアプリケーションの動作を確認します。
 
