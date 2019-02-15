@@ -48,7 +48,7 @@ Helm チャートと呼ばれる定義ファイルを使用すると，アプリ
     ```bash
     modernpetsフォルダの中身を確認
     $ tree
-    
+    .
     ├── Chart.yaml
     ├── templates
     │   ├── NOTES.txt
