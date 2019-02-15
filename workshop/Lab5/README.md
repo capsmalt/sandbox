@@ -56,7 +56,7 @@
   実行例:
 
   ```bash
-  jpetstore-kubernetes/mmssearcｈ ディレクトリで操作します。
+  jpetstore-kubernetes-min/mmssearcｈ ディレクトリで操作します。
   $ cp mms-secrets.json.template mms-secrets.json
   ```
 
@@ -82,7 +82,7 @@
   実行例: 
 
   ```bash
-  jpetstore-kubernetes/mmssearchで操作します。
+  jpetstore-kubernetes-min/mmssearchで操作します。
   $ kubectl create secret generic mms-secret --from-file=mms-secrets=./mms-secrets.json
   secret/mms-secret created
   ```
@@ -125,46 +125,18 @@
   > IBM Cloudでは、KubernetesクラスターとIBM Cloudのサービスの接続を容易にするためのコマンド`ibmcloud cs cluster-service-bind`が用意されています。この方法でも`Secret`を作成できます。詳しくは[こちら](https://cloud.ibm.com/docs/containers/cs_integrations.html#adding_cluster)を参照してください。 
 
 
-##############################
-
-Kubernetes上のアプリケーションから外部サービスを呼び出すための設定を行います。
-
-実際にアプリケーションから読み出す方法は`Secret`を**Volumeとしてマウント**する方法と、**環境変数として参照**する方法があります。
-`MMSSearch`では以下のようにVolumeとしてマウントする方法で実装されています。
-
-```yaml
-    #中略
-    spec:
-        volumeMounts:
-         - name: service-secrets
-           mountPath: "/etc/secrets"
-           readOnly: true
-      volumes:
-      - name: service-secrets
-        secret:
-          secretName: mms-secret
-          items:
-          - key: mms-secrets
-            path: mms-secrets.json
-```
-
->`/etc/secret`に`mms-secrets.json`がマウントされます。
-
-##############################
-
-
 ## 3) `MMSSearch`アプリケーションのデプロイ
 
 7. Helm チャートを使用してMMSSearchアプリケーションをデプロイします。
 
   `helm install`コマンドを使用します。
   
-  MMSSearchのDeployment/Serviceなどを作成するHelmチャートは，`jpetstore-kubernetes/helm`ディレクトリに準備しています。
+  MMSSearchのDeployment/Serviceなどを作成するHelmチャートは，`jpetstore-kubernetes-min/helm`ディレクトリに準備しています。
   
   実行例:
   
   ```bash
-  helmディレクトリー移動 (jpetstore-kubernetes/helm)
+  helmディレクトリー移動 (jpetstore-kubernetes-min/helm)
   $ cd helm
 
   MMSSearchアプリのデプロイ
@@ -213,7 +185,7 @@ Kubernetes上のアプリケーションから外部サービスを呼び出す�
   > yamlファイルを使用してデプロイする場合は以下のようになります。(**今回は実施しません**)
   > 
   > ```bash
-  > #jpetstore-kubernetes/jpetstore ディレクトリに移動
+  > #jpetstore-kubernetes-min/jpetstore ディレクトリに移動
   > $ cd jpetstore
   > $ kubectl apply -f jpetstore-watson.yaml
   > service "mmssearch" created
@@ -252,7 +224,8 @@ Kubernetes上のアプリケーションから外部サービスを呼び出す�
 
 
 ブラウザで`<クラスターのPublic IP>:<ポート>`にアクセスしてください。
-    [pet-images](https://github.com/kissyyy/jpetstore-kubernetes/tree/master/pet-images)ディレクトリにある動物の画像をアップロードすると，Watson Visual Recognitionによる画像認識が行われ，認識した結果（動物の種類）が`JpetStore`データベースに登録されている動物か否かが返ってきます。
+    
+    `jpetstore-kubernetes-min/pet-images`ディレクトリにある動物の画像をアップロードすると，Watson Visual Recognitionによる画像認識が行われ，認識した結果（動物の種類）が`JpetStore`データベースに登録されている動物か否かが返ってきます。
 
    ![](images/webchat.png)
 
@@ -270,3 +243,28 @@ Kubernetes上のアプリケーションから外部サービスを呼び出す�
   ```
   
 次のハンズオンはこちら [Lab6](../Lab6/README.md) です。
+
+*******
+
+### 参考: Kubernetes上のアプリケーションから外部サービスを呼び出すための設定 (今回は実施しません。)
+
+実際にアプリケーションから読み出す方法は`Secret`を**Volumeとしてマウント**する方法と，**環境変数として参照**する方法があります。
+`MMSSearch`では以下のようにVolumeとしてマウントする方法で実装されています。
+
+```yaml
+    #中略
+    spec:
+        volumeMounts:
+         - name: service-secrets
+           mountPath: "/etc/secrets"
+           readOnly: true
+      volumes:
+      - name: service-secrets
+        secret:
+          secretName: mms-secret
+          items:
+          - key: mms-secrets
+            path: mms-secrets.json
+```
+
+>`/etc/secret`に`mms-secrets.json`がマウントされます。
