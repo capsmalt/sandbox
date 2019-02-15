@@ -550,13 +550,47 @@ $ cd guestbook/v1
   2) "test  by firefox"
   3) "test by chrome"
   4) "test by chrome secret window"
+  127.0.0.1:6379> info replication
+  # Replication
+  role:slave
+  master_host:redis-master
+  master_port:6379
+  master_link_status:up
+  master_last_io_seconds_ago:7
+  master_sync_in_progress:0
+  slave_repl_offset:2339
+  slave_priority:100
+  slave_read_only:1
+  connected_slaves:0
+  master_repl_offset:0
+  repl_backlog_active:0
+  repl_backlog_size:1048576
+  repl_backlog_first_byte_offset:0
+  repl_backlog_histlen:0
   127.0.0.1:6379> config get slave-read-only
   1) "slave-read-only"
   2) "yes"
   127.0.0.1:6379> exit
   ```
 
-  手順9.で入力した文字列が出力され，正常にデータが保存できていることが確認できます。また，`conifg get slave-read-only`コマンドによりこのPodが読み込み専用となっていることが確認できます。
+  手順9.で入力した文字列が出力され，正常にデータが保存できていることが確認できます。また，`info replication`コマンドの`role:slave`という出力でこのPodがslaveであることが確認できます。さらに，`conifg get slave-read-only`コマンドでslaveは読み込み専用となるよう設定されています。
+
+  >補足:  
+  >`redis-master`は`role:master`となっていることも確認できます。
+  >```
+  >$ kubectl exec -it redis-master-5d8b66464f-qjjfn redis-cli
+  >127.0.0.1:6379> info replication
+  ># Replication
+  >role:master
+  >connected_slaves:2
+  >slave0:ip=172.30.78.27,port=6379,state=online,offset=2255,lag=0
+  >slave1:ip=172.30.78.28,port=6379,state=online,offset=2255,lag=0
+  >master_repl_offset:2255
+  >repl_backlog_active:1
+  >repl_backlog_size:1048576
+  >repl_backlog_first_byte_offset:2
+  >repl_backlog_histlen:2254
+  >```
 
 14. Redis Slaveデータベースを外部公開するためのServiceの構成を見てみましょう。
 
