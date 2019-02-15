@@ -1,4 +1,4 @@
-# Lab6: サンプル・チャートでHelmを理解する
+# Lab6) サンプル・チャートでHelmを理解する
 
 Lab6では、Helmの理解のために、サンプルのチャートを作ってKubernetesにデプロイします。
 チャートの構造を理解することで、提供されるチャートをただ使うのではなく、理解した上で利用できるようになります。
@@ -14,8 +14,8 @@ Helmの公式サイトにチャート開発のためのドキュメントがま�
 チャートの雛形を作成してみます。任意の作業ディレクトリで以下のコマンドを実行してください。
 
    ```bash
-   # 任意のディレクトリでhelm createコマンドを
-   $helm create mychart
+   任意のディレクトリでhelm createコマンドを実行します。
+   $ helm create mychart
    Creating mychart
    ```
    
@@ -39,7 +39,7 @@ Helmの公式サイトにチャート開発のためのドキュメントがま�
 Go Template言語で環境により異なる値が記載されています
 
    ```bash
-   $cat templates/deployment.yaml 
+   $ cat templates/deployment.yaml 
    apiVersion: apps/v1beta2
    kind: Deployment
    metadata:
@@ -71,7 +71,7 @@ Go Template言語で環境により異なる値が記載されています
 以下の設定の場合、例えばvalues.yamlにあるreplicaCountという設定項目が上記のdeployment.ymlのレプリカ数を指定する項目(spec.replicas)に反映されます。
 
    ```
-   $cat values.yaml 
+   $ cat values.yaml 
    # Default values for mychart.
    # This is a YAML-formatted file.
    # Declare variables to be passed into your templates.
@@ -97,7 +97,7 @@ Go Template言語で環境により異なる値が記載されています
 以下のような結果が出力されることを確認します。
 
    ```bash
-   $helm install --name sample ./mychart
+   $ helm install --name sample ./mychart
    NAME:   sample
    LAST DEPLOYED: Wed Feb 13 18:40:59 2019
    NAMESPACE: default
@@ -127,13 +127,13 @@ Go Template言語で環境により異なる値が記載されています
 問題なくデプロイができたかは、以下のコマンドで確認します:
 
    ```bash
-   $helm ls
+   $ helm ls
    NAME  	REVISION	UPDATED                 	STATUS  	CHART        	NAMESPACE
    sample	1       	Wed Feb 13 18:40:59 2019	DEPLOYED	mychart-0.1.0	default 
    ```
 
    ```bash
-   $kubectl get po
+   $ kubectl get po
    NAME                             READY     STATUS    RESTARTS   AGE
    sample-mychart-6cc9cb59d-vnm5g   1/1       Running   0          4m
    ```
@@ -141,7 +141,7 @@ Go Template言語で環境により異なる値が記載されています
 実際にアプリケーションにアクセスするために、「kubectl port-forward <Pod名> <任意のポート番号>:80」でポートフォワーディングします。
 
    ```bash
-   $kubectl port-forward sample-mychart-6cc9cb59d-vnm5g 8080:80
+   $ kubectl port-forward sample-mychart-6cc9cb59d-vnm5g 8080:80
    Forwarding from 127.0.0.1:8080 -> 80
    Forwarding from [::1]:8080 -> 80
    ```
@@ -153,7 +153,7 @@ Go Template言語で環境により異なる値が記載されています
 templates/service.yamlの17行目から３行追加します。
 
    ```bash
-   $cat mychart/templates/service.yaml 
+   $ cat mychart/templates/service.yaml 
    apiVersion: v1
    kind: Service
    metadata:
@@ -189,7 +189,7 @@ templates/service.yamlの17行目から３行追加します。
 変更したらテンプレートの記載が正しいかのチェックを行います。「helm lint <helmチャートのディレクトリ>」を実行します。
 
    ```bash
-   $helm lint ./mychart/
+   $ helm lint ./mychart/
    ==> Linting ./mychart/
    [INFO] Chart.yaml: icon is recommended
 
@@ -200,13 +200,13 @@ templates/service.yamlの17行目から３行追加します。
 デフォルト値が定義されているvalue.yamlをコピーします。
 
    ```bash
-   $cp -p mychart/values.yaml value-new.yaml
+   $ cp -p mychart/values.yaml value-new.yaml
    ```
 
 コピーしたファイル(value-new.yaml)を開き、以下のようにserviceの項目にあるtypeの設定を修正、そしてnodePortの項目を追加します。
    
    ```bash
-   ＃ value-new.yamlに設定追加 (serviceの項目にnodePortを追加)
+   value-new.yamlに設定追加 (serviceの項目にnodePortを追加)
    
    service:
       type: NodePort
@@ -218,7 +218,7 @@ templates/service.yamlの17行目から３行追加します。
 先ほどと同じように処理が実行されれば問題なく実行できています。
 
    ```bash
-   $helm upgrade -f value-new.yaml sample ./mychart/
+   $ helm upgrade -f value-new.yaml sample ./mychart/
    Release "sample" has been upgraded. Happy Helming!
    LAST DEPLOYED: Wed Feb 13 19:51:15 2019
    NAMESPACE: default
@@ -249,7 +249,7 @@ templates/service.yamlの17行目から３行追加します。
 確認したあとで「http://<パブリックIPアドレス>:30001」でアクセスすれば、再びサンプルのアプリケーションにアクセスできます。
 
    ```bash
-   $ibmcloud ks workers mycluster
+   $ ibmcloud ks workers mycluster
    OK
    ID                         パブリック IP     プライベート IP   マシン・タイプ   状態     状況    ゾーン   バージョン   
    kube-hou02-xxxxxxxxxx-w1   184.xxx.x.xx    10.76.194.59    free             normal   Ready   hou02    1.10.12_1543 
@@ -262,7 +262,7 @@ templates/service.yamlの17行目から３行追加します。
 まずは新しいhelmのvalueファイル (value-new.yaml)を開き、以下のようにapp.nameの設定を追加します。
 
    ```bash
-   ＃ value-new.yamlに設定追加 (serviceの項目の上にapp.nameを追加)
+   value-new.yamlに設定追加 (serviceの項目の上にapp.nameを追加)
    app:
       name: IKS-san
    
@@ -275,7 +275,8 @@ templates/service.yamlの17行目から３行追加します。
 続いて、チャートのtemplatesディレクトリにindex-configmap.yamlを作成します。21行目がWebブラウザで確認できるメッセージの部分です。
 
    ```bash
-   # mychart/templates/index-configmap.yamlの内容
+   以下mychart/templates/index-configmap.yamlの内容
+   
    apiVersion: v1
    kind: ConfigMap
    metadata:
@@ -312,7 +313,8 @@ templates/service.yamlの17行目から３行追加します。
 さらに、チャートのtemplatesディレクトリにあるdeployment.yamlを編集します。
 
    ```bash
-   # mychart/templates/deployment.yamlの内容
+   以下mychart/templates/deployment.yamlの内容
+   
    apiVersion: apps/v1beta2
    kind: Deployment
    metadata:
@@ -395,7 +397,7 @@ templates/service.yamlの17行目から３行追加します。
 完了したら再びhelm upgradeで更新します。
 
    ```bash
-   helm upgrade -f value-new.yaml sample ./mychart/
+   $ helm upgrade -f value-new.yaml sample ./mychart/
    ```
 
 あとはWebブラウザでアクセスし、画面の結果を確認します。
@@ -404,9 +406,9 @@ templates/service.yamlの17行目から３行追加します。
 ## お片付け
 
 ```bash
-# helmで作成したリリースを削除します
-helm delete sample --purge
+1) helmで作成したリリースを削除します
+$ helm delete sample --purge
 
-# ハンズオンが終わったらクラスターを削除します
-ibmcloud ks cluster-rm <クラスター名>
+2) ハンズオンが終わったらクラスターを削除します
+$ ibmcloud ks cluster-rm <クラスター名>
 ```
