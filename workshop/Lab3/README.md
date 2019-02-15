@@ -512,6 +512,7 @@ $ cd guestbook/v1
             containerPort: 6379
   ```
 
+  コンテナイメージとして`image: kubernetes/redis-slave:v2`を指定し，
   `spec.replicas: 2`の部分で，2つのレプリカを生成するように構成されていることが分かります。
 
 11. Redis Slaveデータベースのdeploymentを作成します。
@@ -534,7 +535,7 @@ $ cd guestbook/v1
   redis-slave-586b4c847c-lw5gj   1/1     Running   0          1m
   ```
 
-13. Redis Slaveのコンテナ内に入り，データベースを正しく閲覧できるか確認します。
+13. Redis Slaveのコンテナ内に入り，データベースを正しく閲覧できるか確認します。さらに，slaveとして`read-only`に設定されていることを確認します。
 
   12.で確認したPod名のうち1つを選択します(上記例では`redis-slave-586b4c847c-kj4q9`)。これを引数に指定してコマンド実行し，コンテナ内に入って操作します。
 
@@ -549,10 +550,13 @@ $ cd guestbook/v1
   2) "test  by firefox"
   3) "test by chrome"
   4) "test by chrome secret window"
+  127.0.0.1:6379> config get slave-read-only
+  1) "slave-read-only"
+  2) "yes"
   127.0.0.1:6379> exit
   ```
 
-  手順9.で入力した文字列が出力され，正常にデータが保存できていることが確認できます。
+  手順9.で入力した文字列が出力され，正常にデータが保存できていることが確認できます。また，`conifg get slave-read-only`コマンドによりこのPodが読み込み専用となっていることが確認できます。
 
 14. Redis Slaveデータベースを外部公開するためのServiceの構成を見てみましょう。
 
