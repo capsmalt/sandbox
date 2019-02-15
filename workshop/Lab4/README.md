@@ -19,26 +19,25 @@ Helm チャートと呼ばれる定義ファイルを使用して，アプリケ
 
 ## Helmチャートを使用して `JpetStore`アプリケーションをデプロイする
 
-1. ハンズオン用のリポジトリをフォーク(&クローン)していない場合は実施します。
-
-    1. ブラウザ上でフォーク
-    2. `git`コマンドでクローン
-
-        実行例:
+1. ハンズオン用のJpetStoreリポジトリをクローンします。(Lab5でも使用します)
     
-        ```bash
-        $ git clone https://github.com/capsmalt/iks-handson.git
-        ```
+    `git`コマンドでクローンします。
+
+    実行例:
+    
+    ```bash
+    $ git clone https://github.com/capsmalt/jpetstore-kubernetes-min.git
+    ```
         
 2. Helmチャートの中身を確認します。
 
-    `JpetStore`アプリケーションをデプロイするためのHelmチャートは`iks-handson/jpetstore-kubernetes/helm/modernpets`ディレクトリに入っています。
+    `JpetStore`アプリケーションをデプロイするためのHelmチャートは`jpetstore-kubernetes-min/helm/modernpets`ディレクトリに入っています。
     
 
     実行例:
     
     ```bash
-    $ cd ikshandson/jpetstore-kubernetes/helm
+    $ cd jpetstore-kubernetes-min/helm
     $ ls
     mmssearch	modernpets
     $ cd modernpets
@@ -107,6 +106,8 @@ Helm チャートと呼ばれる定義ファイルを使用して，アプリケ
     実行例:
     
     ```bash
+    jpetstore-kubernetes-min/helmディレクトリで操作します。
+    $ cd ../helm
     $ helm install --name jpetstore ./modernpets/
     
     デプロイされたPodを確認します。
@@ -200,12 +201,12 @@ Helm チャートと呼ばれる定義ファイルを使用して，アプリケ
 
 ## 参考1: YAMLファイルを使用したデプロイ (今回は実施しません。)
 
-  JpetStoreアプリのyamlファイルは， `ikshandson/jpetstore-kubernetes/jpetstore` ディレクトリ配下にあります。
+  JpetStoreアプリのyamlファイルは， `jpetstore-kubernetes-min/jpetstore` ディレクトリ配下にあります。
 
     実行例: 
 
     ```bash
-    jpetstore-kubernetes/jpetstore ディレクトリで操作します。
+    jpetstore-kubernetes-min/jpetstore ディレクトリで操作します。
     $ kubectl apply -f jpetstore.yaml
     deployment.extensions "jpetstoreweb" created
     service "web" created
@@ -221,8 +222,8 @@ Helm チャートと呼ばれる定義ファイルを使用して，アプリケ
 1. ソースコードを入手します。
 
     ```bash
-    $ git clone https://github.com/kissyyy/jpetstore-kubernetes
-    $ cd jpetstore-kubernetes
+    $ git clone https://github.com/capsmalt/jpetstore-kubernetes-all.git
+    $ cd jpetstore-kubernetes-all
     ```
 
     > 補足:  
@@ -267,6 +268,7 @@ Helm チャートと呼ばれる定義ファイルを使用して，アプリケ
 4. **jpetstoreweb** イメージをビルドし，レジストリーにプッシュします。 
 
     ```bash
+    jpetstore-kubernetes-all/jpetstoreディレクトリで操作します。
     $ cd jpetstore
     $ docker build . -t <MYREGISTRY>/<MYNAMESPACE>/jpetstoreweb
     $ docker push <MYREGISTRY>/<MYNAMESPACE>/jpetstoreweb
@@ -278,6 +280,7 @@ Helm チャートと呼ばれる定義ファイルを使用して，アプリケ
 5. 同様に， **jpetstoredb** イメージをビルドします。
 
     ```bash
+    jpetstore-kubernetes-all/jpetstore/dbディレクトリで操作します。
     $ cd db
     $ docker build . -t <MYREGISTRY>/<MYNAMESPACE>/jpetstoredb
     $ docker push <MYREGISTRY>/<MYNAMESPACE>/jpetstoredb
